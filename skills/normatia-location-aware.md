@@ -39,6 +39,7 @@ It includes AI Q&A with optional geographic context.
 It includes a compliance verification endpoint.
 
 ## Available Tools
+Connect to the Normatia MCP server (remote at `mcp.normatia.com/mcp` or local via `normatia-mcp` package) to access these tools.
 Use these tools whenever available.
 Do not rely on assumptions when data can be retrieved.
 

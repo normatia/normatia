@@ -48,3 +48,8 @@ node_modules/
 # =======================
 .DS_Store
 Thumbs.db
+
+# =======================
+# Local tests (not published)
+# =======================
+_tests/

@@ -43,6 +43,7 @@ You should also:
 3. Ask for only the minimum extra data needed for determination.
 
 ## Normatia MCP Tools
+Connect to the Normatia MCP server (remote at `mcp.normatia.com/mcp` or local via `normatia-mcp` package) to access these tools.
 Use Normatia MCP tools (or API equivalents) when available.
 
 ### search_locations(q, level?, ancestor_id?)

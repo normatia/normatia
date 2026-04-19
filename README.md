@@ -32,17 +32,39 @@ Create an account and generate an API key at [normatia.com/api](https://normatia
 
 ### 2) MCP Server (AI assistants)
 
+**Remote server (recommended)** - no install needed:
+
+```json
+{
+	"mcpServers": {
+		"normatia": {
+			"type": "streamable-http",
+			"url": "https://mcp.normatia.com/mcp",
+			"headers": {
+				"Authorization": "Bearer sk-normatia-..."
+			}
+		}
+	}
+}
+```
+
+**Local package** (alternative):
+
 ```json
 {
 	"mcpServers": {
 		"normatia": {
 			"command": "uvx",
 			"args": ["normatia-mcp"],
-			"env": { "NORMATIA_API_KEY": "sk-normatia-..." }
+			"env": {
+				"NORMATIA_API_KEY": "sk-normatia-..."
+			}
 		}
 	}
 }
 ```
+
+See [packages/mcp-server/README.md](packages/mcp-server/README.md) for full setup instructions.
 
 ### 3) TypeScript SDK
 

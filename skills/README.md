@@ -61,6 +61,34 @@ You can use them with:
 This allows the same skill behavior whether your assistant runs through MCP
 or calls the API without an MCP layer.
 
+### Remote MCP Server (Recommended)
+
+The simplest setup is the hosted remote server — no local installation needed:
+
+```json
+{
+  "mcpServers": {
+    "normatia": {
+      "type": "streamable-http",
+      "url": "https://mcp.normatia.com/mcp",
+      "headers": {
+        "Authorization": "Bearer sk-normatia-..."
+      }
+    }
+  }
+}
+```
+
+### Local MCP Server
+
+For local/offline usage, install the MCP server as a Python package:
+
+```bash
+pip install normatia-mcp
+```
+
+See [../packages/mcp-server/README.md](../packages/mcp-server/README.md) for full configuration.
+
 ## Combining Skills For Complex Workflows
 
 For advanced tasks, combine skills in sequence.

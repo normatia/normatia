@@ -16,6 +16,7 @@ mcp = FastMCP(
         "1) Search for a location to get its geo_id, 2) Use the geo_id to verify compliance "
         "parameters or ask regulatory questions."
     ),
+    stateless_http=True,
 )
 
 

@@ -3,12 +3,92 @@
 Normatia MCP Server is a standalone Model Context Protocol (MCP) server for the Normatia API.
 It lets AI clients (Claude Desktop, VS Code Copilot, Cursor, Windsurf, and others) call Normatia's Spanish building code compliance endpoints through MCP tools over stdio.
 
+## Remote Server (Recommended)
+
+The fastest way to get started - no installation required. Normatia hosts the MCP server for you at `mcp.normatia.com`.
+
+### Claude Desktop
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS or `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "normatia": {
+      "type": "streamable-http",
+      "url": "https://mcp.normatia.com/mcp",
+      "headers": {
+        "Authorization": "Bearer sk-normatia-..."
+      }
+    }
+  }
+}
+```
+
+### VS Code / GitHub Copilot
+
+Add to `.vscode/mcp.json` in your workspace:
+
+```json
+{
+  "servers": {
+    "normatia": {
+      "type": "streamable-http",
+      "url": "https://mcp.normatia.com/mcp",
+      "headers": {
+        "Authorization": "Bearer sk-normatia-..."
+      }
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to Cursor MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "normatia": {
+      "type": "streamable-http",
+      "url": "https://mcp.normatia.com/mcp",
+      "headers": {
+        "Authorization": "Bearer sk-normatia-..."
+      }
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to Windsurf MCP settings:
+
+```json
+{
+  "mcpServers": {
+    "normatia": {
+      "type": "streamable-http",
+      "url": "https://mcp.normatia.com/mcp",
+      "headers": {
+        "Authorization": "Bearer sk-normatia-..."
+      }
+    }
+  }
+}
+```
+
+## Local Package (Alternative)
+
+If you prefer to run the MCP server locally (e.g., for development or air-gapped environments), you can install it as a Python package.
+
 The server is a thin translation layer:
 
 - Client <-> MCP (stdio)
 - MCP <-> Normatia API (HTTP + Bearer token)
 
-## Quick Start (no install)
+### Quick Start (no install)
 
 Use `uvx` to run directly without installing globally:
 
@@ -23,7 +103,7 @@ $env:NORMATIA_API_KEY="sk-normatia-xxxxx"
 uvx normatia-mcp
 ```
 
-## Installation
+### Installation
 
 ```bash
 pip install normatia-mcp
@@ -41,6 +121,25 @@ You can also run it as a Python module:
 python -m normatia_mcp
 ```
 
+### Local Client Configuration (stdio)
+
+Example local MCP client config using `uvx`:
+
+```json
+{
+  "mcpServers": {
+    "normatia": {
+      "command": "uvx",
+      "args": ["normatia-mcp"],
+      "env": {
+        "NORMATIA_API_KEY": "sk-normatia-your-key-here",
+        "NORMATIA_API_BASE_URL": "https://api.normatia.com"
+      }
+    }
+  }
+}
+```
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |
@@ -52,88 +151,6 @@ Authentication header used by this MCP server:
 
 ```http
 Authorization: Bearer sk-normatia-xxxxx
-```
-
-## Client Configuration
-
-### Claude Desktop
-
-Update your Claude Desktop MCP config file:
-
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\\Claude\\claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "normatia": {
-      "command": "uvx",
-      "args": ["normatia-mcp"],
-      "env": {
-        "NORMATIA_API_KEY": "sk-normatia-your-key-here",
-        "NORMATIA_API_BASE_URL": "https://api.normatia.com"
-      }
-    }
-  }
-}
-```
-
-### VS Code Copilot
-
-Create or update `.vscode/mcp.json` in your workspace:
-
-```json
-{
-  "servers": {
-    "normatia": {
-      "type": "stdio",
-      "command": "uvx",
-      "args": ["normatia-mcp"],
-      "env": {
-        "NORMATIA_API_KEY": "sk-normatia-your-key-here",
-        "NORMATIA_API_BASE_URL": "https://api.normatia.com"
-      }
-    }
-  }
-}
-```
-
-### Cursor
-
-In Cursor MCP settings (or `~/.cursor/mcp.json`), add:
-
-```json
-{
-  "mcpServers": {
-    "normatia": {
-      "command": "uvx",
-      "args": ["normatia-mcp"],
-      "env": {
-        "NORMATIA_API_KEY": "sk-normatia-your-key-here",
-        "NORMATIA_API_BASE_URL": "https://api.normatia.com"
-      }
-    }
-  }
-}
-```
-
-### Windsurf
-
-In Windsurf MCP settings (typically under `~/.codeium/windsurf/`), add:
-
-```json
-{
-  "mcpServers": {
-    "normatia": {
-      "command": "uvx",
-      "args": ["normatia-mcp"],
-      "env": {
-        "NORMATIA_API_KEY": "sk-normatia-your-key-here",
-        "NORMATIA_API_BASE_URL": "https://api.normatia.com"
-      }
-    }
-  }
-}
 ```
 
 ## Available Tools

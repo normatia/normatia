@@ -52,6 +52,7 @@ Do not assume applicability without location context if location matters.
 If tool output is incomplete, say what is missing and ask for it.
 
 ## Available Tools
+Connect to the Normatia MCP server (remote at `mcp.normatia.com/mcp` or local via `normatia-mcp` package) to access these tools.
 The MCP server exposes these tools:
 - search_locations(q, level?, ancestor_id?)
 - get_location(geo_id)
