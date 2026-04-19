@@ -1,0 +1,49 @@
+{
+  "name": "normatia",
+  "version": "0.1.0",
+  "description": "Official TypeScript SDK for the Normatia building code compliance API",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "test": "echo \"No tests yet\"",
+    "lint": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/normatia/normatia.git"
+  },
+  "homepage": "https://github.com/normatia/normatia",
+  "bugs": {
+    "url": "https://github.com/normatia/normatia/issues"
+  },
+  "keywords": [
+    "normatia",
+    "building-codes",
+    "compliance",
+    "spain",
+    "cte",
+    "aeco",
+    "api",
+    "sdk"
+  ]
+}

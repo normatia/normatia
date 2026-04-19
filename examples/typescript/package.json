@@ -1,0 +1,16 @@
+{
+  "name": "@normatia/examples-typescript",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "location": "npx tsx location-search.ts",
+    "codes": "npx tsx code-lookup.ts",
+    "ai": "npx tsx ai-qa.ts",
+    "verify": "npx tsx compliance-check.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}

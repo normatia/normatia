@@ -1,0 +1,50 @@
+# =======================
+# Python
+# =======================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.eggs/
+dist/
+build/
+*.whl
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# =======================
+# Node.js / TypeScript
+# =======================
+node_modules/
+*.tgz
+.turbo/
+.next/
+
+# =======================
+# IDE / Editor
+# =======================
+.idea/
+.vscode/*
+!.vscode/mcp.json
+*.swp
+*.swo
+*~
+
+# =======================
+# Environment
+# =======================
+.env
+.env.local
+.env.*.local
+
+# =======================
+# OS
+# =======================
+.DS_Store
+Thumbs.db
