@@ -6,8 +6,7 @@ Thanks for your interest in contributing! This guide will help you get started.
 
 ```
 packages/
-  mcp-server/      # Python — MCP server for AI assistants
-  normatia-sdk/    # TypeScript — SDK for the Normatia API
+  sdk-typescript/  # TypeScript — SDK for the Normatia API
 examples/
   python/          # Python usage examples
   typescript/      # TypeScript usage examples
@@ -16,15 +15,6 @@ skills/            # AI agent skills (Copilot, Cursor, etc.)
 ```
 
 ## Development Setup
-
-### Python (MCP Server)
-
-```bash
-cd packages/mcp-server
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-```
 
 ### Node.js (SDK)
 
@@ -36,7 +26,6 @@ npm run build
 
 ## Code Style
 
-- **Python**: We use [Ruff](https://docs.astral.sh/ruff/) for linting and formatting. Run `ruff check .` and `ruff format .` before committing.
 - **TypeScript**: We use [ESLint](https://eslint.org/) and [Prettier](https://prettier.io/). Run `npm run lint` and `npm run format` before committing.
 
 ## Commit Conventions

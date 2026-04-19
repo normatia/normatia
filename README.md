@@ -1,9 +1,8 @@
-# Normatia Devtools
+# Normatia
 
 Open-source developer toolkit for Spanish building code compliance.
 
 [![npm version](https://img.shields.io/npm/v/normatia?label=npm%20normatia)](https://www.npmjs.com/package/normatia)
-[![PyPI version](https://img.shields.io/pypi/v/normatia-mcp?label=PyPI%20normatia-mcp)](https://pypi.org/project/normatia-mcp/)
 [![License: MIT](https://img.shields.io/github/license/normatia/normatia)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/normatia/normatia?style=social)](https://github.com/normatia/normatia)
 
@@ -13,26 +12,38 @@ API base: [api.normatia.com](https://api.normatia.com)
 
 ## What is Normatia?
 
-Normatia is a building code compliance platform for Spain's AECO sector. This repository is the open-source developer toolkit for integrating with Normatia services, not the full end-user platform.
+Normatia is a building code compliance platform for Spain's AECO sector (architecture, engineering, construction, and operations). This repository contains the open-source developer toolkit: an MCP server for AI assistants, a TypeScript SDK, API usage examples, and reusable AI skills.
 
-It includes official SDKs, an MCP server for AI assistants, API usage examples, and reusable AI skills/system prompts.
+## MCP Server
 
-## Packages
+Normatia provides a remote MCP server that gives AI assistants access to Spanish building code data, location intelligence, compliance verification, and regulatory Q&A — no installation required.
 
-| Package | Type | Install | README |
-| --- | --- | --- | --- |
-| `normatia` | TypeScript SDK | `npm install normatia` | [packages/sdk-typescript/README.md](packages/sdk-typescript/README.md) |
-| `normatia-mcp` | MCP Server | `pip install normatia-mcp` or `uvx normatia-mcp` | [packages/mcp-server/README.md](packages/mcp-server/README.md) |
+```
+https://mcp.normatia.com/mcp
+```
 
-## Quick Start
+### Available Tools
 
-### 1) Get an API key
+| Tool | Description |
+| --- | --- |
+| `search_locations` | Search Spanish geographic locations (municipalities, provinces, autonomous communities) |
+| `get_location` | Get location detail with climate zone, seismic data, and applicable codes |
+| `search_codes` | Search building codes and regulations by topic, scope, or tag |
+| `get_code` | Get detailed information about a specific building code |
+| `get_code_latest` | Get the latest active version of a code |
+| `get_code_version` | Get a specific version with section index |
+| `verify_compliance` | Verify if a technical value complies with regulations for a location |
+| `ask` | Ask natural-language questions about Spanish building regulations |
 
-Create an account and generate an API key at [normatia.com/api](https://normatia.com/api).
+### Setup
 
-### 2) MCP Server (AI assistants)
+#### Prerequisites
 
-**Remote server (recommended)** - no install needed:
+Get an API key at [normatia.com/api](https://normatia.com/api). Keys use the format `sk-normatia-...`.
+
+#### Claude Desktop
+
+Add to your config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
@@ -48,25 +59,130 @@ Create an account and generate an API key at [normatia.com/api](https://normatia
 }
 ```
 
-**Local package** (alternative):
+#### Claude Code
+
+```bash
+claude mcp add normatia --transport streamable-http https://mcp.normatia.com/mcp \
+	-h "Authorization: Bearer sk-normatia-..."
+```
+
+#### VS Code / GitHub Copilot
+
+Add to `.vscode/mcp.json` in your workspace:
 
 ```json
 {
-	"mcpServers": {
+	"servers": {
 		"normatia": {
-			"command": "uvx",
-			"args": ["normatia-mcp"],
-			"env": {
-				"NORMATIA_API_KEY": "sk-normatia-..."
+			"type": "streamable-http",
+			"url": "https://mcp.normatia.com/mcp",
+			"headers": {
+				"Authorization": "Bearer sk-normatia-..."
 			}
 		}
 	}
 }
 ```
 
-See [packages/mcp-server/README.md](packages/mcp-server/README.md) for full setup instructions.
+Or add to your User Settings (JSON) for global access:
 
-### 3) TypeScript SDK
+```json
+{
+	"mcp": {
+		"servers": {
+			"normatia": {
+				"type": "streamable-http",
+				"url": "https://mcp.normatia.com/mcp",
+				"headers": {
+					"Authorization": "Bearer sk-normatia-..."
+				}
+			}
+		}
+	}
+}
+```
+
+#### Cursor
+
+Add to Cursor MCP settings (`~/.cursor/mcp.json`):
+
+```json
+{
+	"mcpServers": {
+		"normatia": {
+			"type": "streamable-http",
+			"url": "https://mcp.normatia.com/mcp",
+			"headers": {
+				"Authorization": "Bearer sk-normatia-..."
+			}
+		}
+	}
+}
+```
+
+#### Windsurf
+
+Add to Windsurf MCP settings:
+
+```json
+{
+	"mcpServers": {
+		"normatia": {
+			"type": "streamable-http",
+			"url": "https://mcp.normatia.com/mcp",
+			"headers": {
+				"Authorization": "Bearer sk-normatia-..."
+			}
+		}
+	}
+}
+```
+
+#### Zed
+
+Add to Zed settings (`~/.config/zed/settings.json`):
+
+```json
+{
+	"context_servers": {
+		"normatia": {
+			"transport": "streamable-http",
+			"url": "https://mcp.normatia.com/mcp",
+			"headers": {
+				"Authorization": "Bearer sk-normatia-..."
+			}
+		}
+	}
+}
+```
+
+#### Any MCP Client
+
+Use these connection details with any MCP-compatible client:
+
+| Setting | Value |
+| --- | --- |
+| Transport | `streamable-http` |
+| URL | `https://mcp.normatia.com/mcp` |
+| Auth header | `Authorization: Bearer sk-normatia-...` |
+
+For full setup instructions for 30+ MCP clients, see [docs.normatia.com/mcp](https://docs.normatia.com/mcp).
+
+### Example Prompts
+
+Once connected, try these prompts in your AI assistant:
+
+- "Search for municipalities named Sevilla"
+- "What climate zone is Madrid in?"
+- "What are the fire resistance requirements for residential structures?"
+- "Verify if a wall with U-value 0.35 W/m²K is compliant in Sevilla"
+- "Show me the latest version of the CTE DB-HE"
+
+## TypeScript SDK
+
+```bash
+npm install normatia
+```
 
 ```typescript
 import { NormatiaClient } from 'normatia';
@@ -76,12 +192,7 @@ const location = await client.getLocation('ES-41091');
 console.log(location.tech_data.climate_zone); // "B4"
 ```
 
-### 4) cURL
-
-```bash
-curl https://api.normatia.com/api/v1/location/ES-41091 \
-	-H "Authorization: Bearer sk-normatia-..."
-```
+See [packages/sdk-typescript/README.md](packages/sdk-typescript/README.md) for full documentation.
 
 ## Examples
 
@@ -89,11 +200,15 @@ curl https://api.normatia.com/api/v1/location/ES-41091 \
 | --- | --- |
 | [examples/curl](examples/curl) | cURL examples for all main API endpoints |
 | [examples/python](examples/python) | Python examples using `httpx` |
-| [examples/typescript](examples/typescript) | TypeScript examples using native `fetch` |
+| [examples/typescript](examples/typescript) | TypeScript examples using the SDK |
 
 ## AI Skills
 
-The [skills](skills) directory contains reusable prompts and instructions for AI agents working with Normatia workflows, including code search, location-aware retrieval, and compliance-focused tasks.
+The [skills](skills) directory contains reusable system prompts for AI agents working with Normatia:
+
+- **Building Codes** — Expert navigation of Spanish regulations (CTE, RITE, LOE)
+- **Compliance** — Structured compliance verification workflows
+- **Location-Aware** — Geography-contextual regulatory guidance
 
 ## API Overview
 
@@ -110,7 +225,7 @@ The [skills](skills) directory contains reusable prompts and instructions for AI
 
 ## Documentation
 
-Full API and integration documentation is available at [docs.normatia.com](https://docs.normatia.com).
+Full API reference and integration guides at [docs.normatia.com](https://docs.normatia.com).
 
 ## Contributing
 
@@ -118,5 +233,5 @@ Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before
 
 ## License
 
-MIT - see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).
 

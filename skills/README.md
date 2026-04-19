@@ -61,7 +61,7 @@ You can use them with:
 This allows the same skill behavior whether your assistant runs through MCP
 or calls the API without an MCP layer.
 
-### Remote MCP Server (Recommended)
+### MCP Server
 
 The simplest setup is the hosted remote server — no local installation needed:
 
@@ -78,16 +78,6 @@ The simplest setup is the hosted remote server — no local installation needed:
   }
 }
 ```
-
-### Local MCP Server
-
-For local/offline usage, install the MCP server as a Python package:
-
-```bash
-pip install normatia-mcp
-```
-
-See [../packages/mcp-server/README.md](../packages/mcp-server/README.md) for full configuration.
 
 ## Combining Skills For Complex Workflows
 
