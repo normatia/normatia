@@ -5,14 +5,14 @@
 const DEFAULT_API_URL = "https://api.normatia.com";
 
 const REQUEST_BODY = {
-  element: "Exterior window with thermal break aluminum frame",
-  parameter: "Thermal transmittance (U-value)",
+  element: "Ventana exterior con carpintería de aluminio con rotura de puente térmico",
+  parameter: "Transmitancia térmica (valor U)",
   value: 2.3,
   unit: "W/m2K",
   geo_id: "ES-41091",
   codes: [{ slug: "cte-db-he", version: "2022" }],
   context:
-    "Residential multi-family building in Seville, renovation project, exterior envelope upgrade.",
+    "Edificio residencial plurifamiliar en Sevilla, proyecto de rehabilitación, mejora de envolvente exterior.",
 };
 
 function getClientConfig(): { apiKey: string; baseUrl: string } {

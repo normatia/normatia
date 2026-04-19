@@ -1,3 +1,5 @@
+[🇬🇧 English](./README.md) | [🇪🇸 Español](./README.es.md)
+
 # Normatia
 
 Open-source developer toolkit for Spanish building code compliance.

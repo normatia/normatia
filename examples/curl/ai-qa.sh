@@ -26,7 +26,7 @@ print_json_or_raw() {
 
 ASK_BODY="$(cat <<'JSON'
 {
-  "query": "What energy efficiency requirements apply to a residential building facade in Seville?",
+  "query": "¿Qué requisitos de eficiencia energética aplican a la fachada de un edificio residencial en Sevilla?",
   "geo_id": "ES-41091",
   "codes": [
     { "slug": "cte-db-he", "version": "2022" }

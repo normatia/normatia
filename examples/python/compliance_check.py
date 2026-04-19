@@ -63,8 +63,8 @@ def print_result(payload: dict[str, Any]) -> None:
 async def main() -> None:
     base_url, headers = get_client_config()
     request_payload = {
-        "element": "window (CTE DB-HE)",
-        "parameter": "thermal transmittance (U)",
+        "element": "Ventana exterior con carpintería de aluminio con rotura de puente térmico",
+        "parameter": "Transmitancia térmica (valor U)",
         "value": 2.7,
         "unit": "W/m2K",
         "geo_id": "ES-41091",
