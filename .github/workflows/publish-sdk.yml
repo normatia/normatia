@@ -21,6 +21,13 @@ jobs:
           registry-url: "https://registry.npmjs.org"
       - run: npm install
       - run: npm run build
-      - run: npm publish --provenance --access public
+      - name: Publish with provenance (public repository)
+        if: ${{ !github.event.repository.private }}
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish without provenance (private repository)
+        if: ${{ github.event.repository.private }}
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
