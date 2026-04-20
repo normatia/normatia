@@ -30,7 +30,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/normatia/normatia.git"
+    "url": "git+https://github.com/normatia/normatia.git"
   },
   "homepage": "https://github.com/normatia/normatia",
   "bugs": {
