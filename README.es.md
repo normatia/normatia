@@ -231,7 +231,7 @@ El directorio [skills](skills) contiene prompts de sistema reutilizables para ag
 
 ## Documentación
 
-Referencia completa de la API y guías de integración en [docs.normatia.com](https://docs.normatia.com).
+Referencia completa de la API, MCP y guías de integración en [docs.normatia.com](https://docs.normatia.com).
 
 ## Contribuir
 
