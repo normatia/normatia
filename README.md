@@ -37,7 +37,7 @@ https://mcp.normatia.com/mcp
 
 #### Prerequisites
 
-Get an API key at [normatia.com/api](https://normatia.com/api). Keys use the format `sk-normatia-...`.
+Get an API key at [normatia.com/es/api](https://normatia.com/es/api). Keys use the format `sk-normatia-...`.
 
 #### Claude Desktop
 

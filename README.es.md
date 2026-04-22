@@ -37,7 +37,7 @@ https://mcp.normatia.com/mcp
 
 #### Requisitos previos
 
-Obtén una clave API en [normatia.com/api](https://normatia.com/api). Las claves usan el formato `sk-normatia-...`.
+Obtén una clave API en [normatia.com/es/api](https://normatia.com/es/api). Las claves usan el formato `sk-normatia-...`.
 
 #### Claude Desktop
 
