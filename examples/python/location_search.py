@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Search locations in Normatia and fetch detail for a specific geo_id."""
+"""Demonstrate `search_locations` only using Normatia's search endpoint."""
 
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import sys
 from typing import Any
@@ -54,37 +53,6 @@ def print_location_results(results: list[dict[str, Any]]) -> None:
         print(f"   ancestors: {', '.join(filter(None, ancestor_names)) or 'n/a'}")
 
 
-def print_location_detail(detail: dict[str, Any]) -> None:
-    print("\nLocation Detail: ES-41091")
-    print("=========================")
-    print(f"geo_id: {detail.get('geo_id')}")
-    print(f"name: {detail.get('name')}")
-    print(f"level: {detail.get('level')}")
-
-    print("\ntech_data:")
-    print(json.dumps(detail.get("tech_data", {}), ensure_ascii=False, indent=2))
-
-    applicable_codes = detail.get("applicable_codes")
-    if not isinstance(applicable_codes, list):
-        applicable_codes = []
-
-    print("\napplicable_codes:")
-    if not applicable_codes:
-        print("  none")
-        return
-
-    for code in applicable_codes:
-        if isinstance(code, dict):
-            label = code.get("slug") or code.get("title") or str(code)
-            title = code.get("title")
-            if title and title != label:
-                print(f"  - {label}: {title}")
-            else:
-                print(f"  - {label}")
-        else:
-            print(f"  - {code}")
-
-
 async def main() -> None:
     base_url, headers = get_client_config()
 
@@ -99,14 +67,6 @@ async def main() -> None:
                 results = [item for item in search_payload["results"] if isinstance(item, dict)]
 
             print_location_results(results)
-
-            detail_response = await client.get("/api/v1/location/ES-41091")
-            detail_response.raise_for_status()
-            detail_payload = detail_response.json()
-            if not isinstance(detail_payload, dict):
-                raise RuntimeError("Unexpected response shape for location detail.")
-
-            print_location_detail(detail_payload)
 
     except httpx.HTTPStatusError as exc:
         print("\nRequest failed with a non-success HTTP status.")

@@ -29,11 +29,7 @@ https://mcp.normatia.com/mcp
 | Herramienta | Descripción |
 | --- | --- |
 | `search_locations` | Buscar localizaciones geográficas españolas (municipios, provincias, comunidades autónomas) |
-| `get_location` | Obtener detalle de localización con zona climática, datos sísmicos y normativa aplicable |
 | `search_codes` | Buscar códigos y normativas de edificación por tema, ámbito o etiqueta |
-| `get_code` | Obtener información detallada de un código de edificación específico |
-| `get_code_latest` | Obtener la última versión activa de un código |
-| `get_code_version` | Obtener una versión específica con índice de secciones |
 | `verify_compliance` | Verificar si un valor técnico cumple con la normativa para una localización |
 | `ask` | Realizar preguntas en lenguaje natural sobre normativa de edificación española |
 
@@ -194,8 +190,8 @@ npm install normatia
 import { NormatiaClient } from 'normatia';
 
 const client = new NormatiaClient({ apiKey: 'sk-normatia-...' });
-const location = await client.getLocation('ES-41091');
-console.log(location.tech_data.climate_zone); // "B4"
+const results = await client.searchLocations({ q: 'Sevilla' });
+console.log(results[0].geo_id); // "ES-41091"
 ```
 
 Consulta [packages/sdk-typescript/README.md](packages/sdk-typescript/README.md) para la documentación completa.

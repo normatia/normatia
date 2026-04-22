@@ -29,11 +29,7 @@ https://mcp.normatia.com/mcp
 | Tool | Description |
 | --- | --- |
 | `search_locations` | Search Spanish geographic locations (municipalities, provinces, autonomous communities) |
-| `get_location` | Get location detail with climate zone, seismic data, and applicable codes |
 | `search_codes` | Search building codes and regulations by topic, scope, or tag |
-| `get_code` | Get detailed information about a specific building code |
-| `get_code_latest` | Get the latest active version of a code |
-| `get_code_version` | Get a specific version with section index |
 | `verify_compliance` | Verify if a technical value complies with regulations for a location |
 | `ask` | Ask natural-language questions about Spanish building regulations |
 

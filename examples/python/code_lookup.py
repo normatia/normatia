@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Search codes in Normatia, inspect CTE DB-HE details, and list versions."""
+"""Demonstrate `search_codes` only using Normatia's search endpoint."""
 
 from __future__ import annotations
 
@@ -53,62 +53,6 @@ def print_code_search(payload: dict[str, Any]) -> None:
         print(f"   normative_scope: {item.get('normative_scope')}")
 
 
-def print_code_detail(payload: dict[str, Any]) -> None:
-    print("\nCode Detail: cte-db-he")
-    print("======================")
-    print(f"slug: {payload.get('slug')}")
-    print(f"title: {payload.get('title')}")
-    print(f"normative_scope: {payload.get('normative_scope')}")
-
-    documents = payload.get("documents")
-    if not isinstance(documents, list):
-        documents = []
-
-    print("documents:")
-    if not documents:
-        print("  none")
-        return
-
-    for document in documents:
-        if isinstance(document, dict):
-            name = document.get("title") or document.get("name") or "untitled"
-            url = document.get("url") or document.get("href") or "no-url"
-            print(f"  - {name} ({url})")
-        else:
-            print(f"  - {document}")
-
-
-def print_versions(payload: Any) -> None:
-    versions: list[Any]
-    if isinstance(payload, list):
-        versions = payload
-    elif isinstance(payload, dict):
-        possible = payload.get("versions") or payload.get("items") or payload.get("results")
-        versions = possible if isinstance(possible, list) else []
-    else:
-        versions = []
-
-    print("\nAvailable Versions")
-    print("==================")
-    if not versions:
-        print("No versions found.")
-        return
-
-    for version in versions:
-        if isinstance(version, dict):
-            value = version.get("version") or version.get("id") or version.get("slug")
-            label = version.get("label") or version.get("title")
-            status = version.get("status")
-            pieces = [str(value)] if value is not None else []
-            if label:
-                pieces.append(str(label))
-            if status:
-                pieces.append(f"status={status}")
-            print(f"- {' | '.join(pieces) if pieces else version}")
-        else:
-            print(f"- {version}")
-
-
 async def main() -> None:
     base_url, headers = get_client_config()
 
@@ -123,18 +67,6 @@ async def main() -> None:
             if not isinstance(search_payload, dict):
                 raise RuntimeError("Unexpected response shape for code search.")
             print_code_search(search_payload)
-
-            detail_response = await client.get("/api/v1/codes/cte-db-he")
-            detail_response.raise_for_status()
-            detail_payload = detail_response.json()
-            if not isinstance(detail_payload, dict):
-                raise RuntimeError("Unexpected response shape for code detail.")
-            print_code_detail(detail_payload)
-
-            versions_response = await client.get("/api/v1/codes/cte-db-he/versions")
-            versions_response.raise_for_status()
-            versions_payload = versions_response.json()
-            print_versions(versions_payload)
 
     except httpx.HTTPStatusError as exc:
         print("\nRequest failed with a non-success HTTP status.")

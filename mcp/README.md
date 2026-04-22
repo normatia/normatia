@@ -73,25 +73,20 @@ Copy [`opencode.json`](./opencode.json) contents into your config file.
 
 ## Available Tools
 
-The Normatia MCP server exposes 8 tools for Spanish building code compliance:
+The Normatia MCP server exposes 4 tools for Spanish building code compliance:
 
 | Tool                 | Description                                                                            |
 | -------------------- | -------------------------------------------------------------------------------------- |
 | `search_locations`   | Search geographic locations (municipalities, provinces, autonomous communities)         |
-| `get_location`       | Get location details including climate zone, ancestors, and applicable codes            |
 | `search_codes`       | Search building codes and technical regulations                                        |
-| `get_code`           | Get detailed info about a specific building code                                       |
-| `get_code_latest`    | Get the latest/active versions of a building code                                      |
-| `get_code_version`   | Get a specific version of a code, including its section index                          |
 | `verify_compliance`  | Verify if a building parameter complies with regulations for a location                |
 | `ask`                | Ask natural language questions about building regulations                              |
 
 ### Typical Workflow
 
 1. **Search for a location** → `search_locations("Madrid")` → get the `geo_id`
-2. **Check what codes apply** → `get_location(geo_id)` → see applicable codes
-3. **Verify compliance** → `verify_compliance(element, parameter, value, unit, geo_id)`
-4. **Ask questions** → `ask("¿Cuál es la transmitancia máxima para muros?", geo_id)`
+2. **Find applicable codes** → `search_codes(normative_scope?, tag?)` → browse relevant regulations
+3. **Verify or query** → `verify_compliance(element, parameter, value, unit, geo_id)` or `ask("¿Cuál es la transmitancia máxima para muros?", geo_id)`
 
 ---
 
