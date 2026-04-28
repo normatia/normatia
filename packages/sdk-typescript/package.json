@@ -1,6 +1,6 @@
 {
   "name": "normatia",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Official TypeScript SDK for the Normatia building code compliance API",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
