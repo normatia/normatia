@@ -8,8 +8,8 @@ Open-source developer toolkit for Spanish building code compliance.
 [![License: MIT](https://img.shields.io/github/license/normatia/normatia)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/normatia/normatia?style=social)](https://github.com/normatia/normatia)
 
-Main site: [normatia.com](https://normatia.com)  
-API docs: [docs.normatia.com](https://docs.normatia.com)  
+Main site: [normatia.com](https://normatia.com)
+API docs: [docs.normatia.com](https://docs.normatia.com)
 API base: [api.normatia.com](https://api.normatia.com)
 
 ## What is Normatia?
