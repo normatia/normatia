@@ -21,11 +21,22 @@
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts --clean",
     "test": "echo \"No tests yet\"",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "release": "semantic-release"
   },
   "devDependencies": {
     "tsup": "^8.5.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "semantic-release": "^24.0.0",
+    "@semantic-release/commit-analyzer": "^13.0.0",
+    "@semantic-release/release-notes-generator": "^14.0.0",
+    "@semantic-release/changelog": "^6.0.0",
+    "@semantic-release/npm": "^12.0.0",
+    "@semantic-release/github": "^10.0.0",
+    "@semantic-release/git": "^10.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT",
   "repository": {

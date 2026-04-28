@@ -25,6 +25,7 @@ node_modules/
 *.tgz
 .turbo/
 .next/
+packages/sdk-typescript/dist/
 
 # =======================
 # IDE / Editor
