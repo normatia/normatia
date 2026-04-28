@@ -35,9 +35,45 @@ https://mcp.normatia.com/mcp
 
 ### Configuración
 
+#### Claude
+
+Conecta Normatia a [claude.ai](https://claude.ai) como conector personalizado.
+
+**Planes Free, Pro y Max:**
+
+1. Ve a [Customize > Connectors](https://claude.ai/customize/connectors)
+2. Haz clic en "+" y luego en "Add custom connector"
+3. Introduce la URL del servidor: `https://mcp.normatia.com/mcp`
+4. En autenticación selecciona `OAuth`
+5. Haz clic en "Add"
+
+**Planes Team y Enterprise (propietario):**
+
+1. Ve a [Organization settings > Connectors](https://claude.ai/admin-settings/connectors)
+2. Haz clic en "Add" → pasa el cursor sobre "Custom" → selecciona "Web"
+3. Introduce la URL del servidor: `https://mcp.normatia.com/mcp`
+4. En autenticación selecciona `OAuth`
+5. Haz clic en "Add"
+
+Una vez que el propietario lo haya añadido, los miembros se conectan desde [Customize > Connectors](https://claude.ai/customize/connectors).
+
+Tras la configuración, activa Normatia en cada conversación mediante el botón "+" en la parte inferior izquierda → "Connectors".
+
+#### ChatGPT
+
+Conecta Normatia a [ChatGPT](https://chatgpt.com) como app MCP personalizada. Disponible en los planes Free, Plus, Pro, Business y Enterprise/Edu. Actualmente en beta.
+
+1. Activa el modo desarrollador: ve a Settings → Apps → Advanced Settings y activa **Developer mode**
+2. Ve a Settings → Apps → **Create**
+3. Introduce la URL del servidor: `https://mcp.normatia.com/mcp`
+4. En autenticación selecciona `OAuth`
+5. Haz clic en **Create**
+
+Una vez creada, activa la app en cualquier conversación mediante el botón "+" y selecciona Normatia.
+
 #### Requisitos previos
 
-Obtén una clave API en [normatia.com/es/api](https://normatia.com/es/api). Las claves usan el formato `sk-normatia-...`.
+Las siguientes herramientas requieren una clave API. Obtén una en [normatia.com/es/api](https://normatia.com/es/api). Las claves usan el formato `sk-normatia-...`.
 
 #### Claude Desktop
 

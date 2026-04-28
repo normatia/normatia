@@ -35,9 +35,47 @@ https://mcp.normatia.com/mcp
 
 ### Setup
 
+#### Claude
+
+Connect Normatia to [claude.ai](https://claude.ai) as a custom connector. Available on Free (limited to 1 connector), Pro, Max, Team, and Enterprise plans. Currently in beta.
+
+**Free, Pro and Max plans:**
+
+1. Navigate to [Customize > Connectors](https://claude.ai/customize/connectors)
+2. Click "+" then "Add custom connector"
+3. Enter the server URL: `https://mcp.normatia.com/mcp`
+4. Select `OAuth` as authentication
+5. Click "Add"
+
+**Team and Enterprise plans (owner):**
+
+1. Navigate to [Organization settings > Connectors](https://claude.ai/admin-settings/connectors)
+2. Click "Add" → hover "Custom" → select "Web"
+3. Enter the server URL: `https://mcp.normatia.com/mcp`
+4. Select `OAuth` as authentication
+5. Click "Add"
+
+Once added by the owner, members connect from [Customize > Connectors](https://claude.ai/customize/connectors).
+
+After configuration, enable Normatia per conversation via the "+" button in the lower left → "Connectors".
+
+#### ChatGPT
+
+Connect Normatia to [ChatGPT](https://chatgpt.com) as a custom MCP app. Available on Free, Plus, Pro, Business, and Enterprise/Edu plans. Currently in beta.
+
+1. Enable developer mode: go to Settings → Apps → Advanced Settings and toggle **Developer mode**
+2. Go to Settings → Apps → **Create**
+3. Enter the server URL: `https://mcp.normatia.com/mcp`
+4. Select `OAuth` as authentication
+5. Click **Create**
+
+Once created, enable the app in any conversation via the "+" button and select Normatia.
+
+> For Business and Enterprise/Edu plans, workspace admins must configure and publish the app from Workspace Settings → Apps before members can use it.
+
 #### Prerequisites
 
-Get an API key at [normatia.com/es/api](https://normatia.com/es/api). Keys use the format `sk-normatia-...`.
+The following clients require an API key. Get one at [normatia.com/es/api](https://normatia.com/es/api). Keys use the format `sk-normatia-...`.
 
 #### Claude Desktop
 
