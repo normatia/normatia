@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.normatia/mcp",
+  "title": "Normatia",
+  "description": "Kit de herramientas para el cumplimiento del Código Técnico de la Edificación en España. Acceso a datos normativos, inteligencia de localización y verificación de cumplimiento.",
+  "websiteUrl": "https://normatia.com",
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.normatia.com/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Token de API de Normatia (formato: Bearer sk-normatia-...)",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
