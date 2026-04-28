@@ -1,7 +1,31 @@
 {
   "name": "@normatia/examples-typescript",
-  "private": true,
+  "version": "1.1.2",
+  "description": "Ejemplos de uso del kit de herramientas de Normatia para el cumplimiento de la normativa técnica de construcción en España",
   "type": "module",
+  "author": "Normatia (https://normatia.com)",
+  "license": "MIT",
+  "homepage": "https://normatia.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/normatia/normatia.git"
+  },
+  "bugs": {
+    "url": "https://github.com/normatia/normatia/issues"
+  },
+  "keywords": [
+    "mcp",
+    "normativa",
+    "edificación",
+    "cte",
+    "arquitectura",
+    "spain",
+    "ai",
+    "AECO"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "location": "npx tsx location-search.ts",
     "codes": "npx tsx code-lookup.ts",
