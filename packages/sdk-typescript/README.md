@@ -38,12 +38,17 @@ const client = new NormatiaClient({
   baseUrl: "https://api.normatia.com",
 });
 
-const locationSearch = await client.searchLocations({
-  q: "Madrid",
-  level: "municipality",
+// Regulatory questions are scoped to a project, which already carries its
+// municipality, its applicable regulations and its documents.
+const { projects } = await client.listProjects();
+const active = projects.find((project) => project.is_active) ?? projects[0];
+
+const answer = await client.askV2({
+  query: "¿Qué transmitancia máxima puedo poner en las ventanas?",
+  project_id: active.project_id,
 });
 
-console.log(locationSearch.results);
+console.log(answer.answer);
 ```
 
 ## Authentication
@@ -130,15 +135,70 @@ const version = await client.getCodeVersion("cte-db-si", "2023-12");
 // CodeVersionDetail
 ```
 
-### ask(request)
+### listProjects()
 
-Run AI-powered Q&A over the applicable regulations.
+List the projects this key can query. Free — does not consume quota.
+
+```ts
+const { projects } = await client.listProjects();
+
+// ProjectListResponse
+// projects[].is_active marks the one used when no project_id is passed
+```
+
+### getProjectInfo(projectId?)
+
+Full context of a project: location and territory tech data, applicable
+regulations with their current edition, regulations available but not selected,
+uploaded and generated documents, recorded facts and saved calculations. Omit
+the argument to describe the active project. Free — does not consume quota.
+
+```ts
+const project = await client.getProjectInfo("3f8c1a90-5b2e-4d77-9d21-0e5f4a6c8b13");
+
+// ProjectInfoResponse
+```
+
+### askV2(request)
+
+Ask a regulatory question through the agentic engine — the same agent loop as
+the chat on normatia.com. It chains several searches, reads the project's
+recorded facts and saved calculations, consults uploaded documents and cites
+every source with `[N]` markers that match `sources[].index`.
+
+The scope comes from the project, so there is no geography or code filter. Omit
+`project_id` to use the active project.
+
+```ts
+const answer = await client.askV2({
+  query: "¿Qué anchura mínima de escalera me exige la normativa?",
+  project_id: "3f8c1a90-5b2e-4d77-9d21-0e5f4a6c8b13",
+});
+
+console.log(answer.answer);
+for (const source of answer.sources) {
+  console.log(`[${source.index}] ${source.document_title} — ${source.url ?? "project document"}`);
+}
+
+// AskV2Response
+```
+
+A turn takes noticeably longer than a plain search — the server caps it at 6
+reasoning rounds, 6 searches and 120 seconds, and the SDK waits up to 150
+seconds. Each call consumes **1 credit**, however many searches the agent runs.
+
+### ask(request) — deprecated
+
+Calls the frozen `POST /api/v1/ask`: a single semantic search over the active
+project, with no tools, project memory or calculations. Kept for existing
+integrations and scheduled for removal. **Use `askV2` instead.**
+
+The endpoint no longer accepts `geo_id`, `codes` or `messages` — sending any of
+them returns `422`.
 
 ```ts
 const answer = await client.ask({
   query: "What is the minimum stair width for this use case?",
-  geo_id: "ES-MD",
-  codes: [{ slug: "cte-db-si" }],
 });
 
 // AskResponse
@@ -169,14 +229,18 @@ The SDK exports all request and response types, including:
 - `NormatiaConfig`
 - `LocationSearchParams`, `LocationResult`, `LocationDetail`
 - `CodeSearchParams`, `CodeResult`, `CodeDetail`, `DocumentVersion`, `CodeVersionDetail`
-- `AskRequest`, `AskResponse`, `VerifyRequest`, `VerifyResponse`
+- `AskV2Request`, `AskV2Response`, `AskV2Source`, `AskV2Project`
+- `ProjectListResponse`, `ProjectListItem`, `ProjectInfoResponse`
+- Project sub-entities: `ProjectGeoContext`, `ProjectCollection`, `ProjectUnselectedCollection`, `ProjectGeneratedDocument`, `ProjectMemoryFact`, `ProjectCalculation`, `ProjectCalculator`
+- `VerifyRequest`, `VerifyResponse`
+- `AskRequest`, `AskResponse` (deprecated, for the frozen v1 endpoint)
 - `PaginatedResponse<T>`
 - Shared entities: `Ancestor`, `ApplicableCode`, `Section`, `Source`, `GeoContext`
 
 Example:
 
 ```ts
-import type { AskRequest, AskResponse, VerifyRequest, VerifyResponse } from "normatia";
+import type { AskV2Request, AskV2Response, ProjectInfoResponse, VerifyResponse } from "normatia";
 ```
 
 ## Error Handling

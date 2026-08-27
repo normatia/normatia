@@ -61,6 +61,38 @@ You can use them with:
 This allows the same skill behavior whether your assistant runs through MCP
 or calls the API without an MCP layer.
 
+### Everything is scoped to a project
+
+Normatia's regulatory scope is defined per project. A project on normatia.com carries
+its municipality, its applicable regulations with the edition in force, its uploaded
+documents, the facts recorded about the building and any saved calculations.
+
+The skills are written around that: they never ask the user for a city, a climate zone
+or which codes apply, because the project already answers those. And they never answer
+about a municipality where the user has no project.
+
+### The three MCP tools
+
+| Tool | Purpose | Cost |
+| --- | --- | --- |
+| `ask(query, project_id?)` | Regulatory Q&A over a project. The only tool that returns citable regulatory text. | 1 credit |
+| `get_project_info(project_id?)` | Project context: location, tech data, regulations with their version, documents, recorded facts, calculations. | Free |
+| `list_projects()` | The projects the user can query, with their `project_id` and location. | Free |
+
+All three are read-only. There is no `search_locations`, `search_codes` or
+`verify_compliance` on the MCP server: the geography and code catalog endpoints, and
+deterministic verification, live on the REST API only.
+
+### REST equivalents
+
+| Tool | Endpoint |
+| --- | --- |
+| `ask` | `POST /api/v2/ask` |
+| `get_project_info` | `GET /api/v1/project/info` |
+| `list_projects` | `GET /api/v1/projects` |
+
+`POST /api/v1/ask` is frozen and superseded by `/api/v2/ask`.
+
 ### MCP Server
 
 The simplest setup is the hosted remote server — no local installation needed:

@@ -73,20 +73,41 @@ Copy [`opencode.json`](./opencode.json) contents into your config file.
 
 ## Available Tools
 
-The Normatia MCP server exposes 4 tools for Spanish building code compliance:
+The Normatia MCP server exposes 3 tools, all **read-only** — nothing in the MCP surface writes to your projects:
 
-| Tool                 | Description                                                                            |
-| -------------------- | -------------------------------------------------------------------------------------- |
-| `search_locations`   | Search geographic locations (municipalities, provinces, autonomous communities)         |
-| `search_codes`       | Search building codes and technical regulations                                        |
-| `verify_compliance`  | Verify if a building parameter complies with regulations for a location                |
-| `ask`                | Ask natural language questions about building regulations                              |
+| Tool                            | Description                                                                                                                        | Cost     |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `ask(query, project_id?)`       | Ask a natural-language question about the regulations that apply to a project. The only tool that returns citable regulatory text.  | 1 credit |
+| `get_project_info(project_id?)` | Full project context: location, territory tech data, applicable regulations with their current edition, files, memory, calculations. | Free     |
+| `list_projects()`               | Projects the user can query, with their `project_id`, location and which one is active.                                            | Free     |
 
-### Typical Workflow
+### Everything is scoped to a project
 
-1. **Search for a location** → `search_locations("Madrid")` → get the `geo_id`
-2. **Find applicable codes** → `search_codes(normative_scope?, tag?)` → browse relevant regulations
-3. **Verify or query** → `verify_compliance(element, parameter, value, unit, geo_id)` or `ask("¿Cuál es la transmitancia máxima para muros?", geo_id)`
+Normatia's regulatory scope is defined **per project** — each project on normatia.com carries its municipality, its applicable regulations, its uploaded documents, the recorded facts about the building and any saved calculations.
+
+So the assistant never has to ask for the city, the climate zone or which edition of the CTE applies: `ask` returns values already resolved for that project. And if the user asks about a municipality where they have no project, the server says so and points at creating one — municipal ordinances differ completely between town councils, so there is no generic answer.
+
+### `ask` is agentic
+
+`ask` runs the **same agent loop as the chat on normatia.com**, not a single-shot search. The model decides what to look up, chains several searches, reads the project's memory and saved calculations, consults uploaded documents and cites every source with validated `[N]` markers.
+
+Because the call is synchronous it runs on shorter budgets than the web chat: up to **6 reasoning rounds, 6 searches and 120 seconds**. If your MCP client lets you configure the tool-call timeout, set it to **150 seconds or more**.
+
+### Working across projects
+
+Every tool takes an optional `project_id`, resolved as:
+
+```
+explicit project_id  →  the user's active project
+```
+
+To ask about a different project or municipality, call `list_projects()`, take the matching `project_id` and pass it to `ask`. **Never ask the user to switch their active project on the website** — several projects can be queried in the same conversation, in parallel, and what the user sees on normatia.com never changes underneath them.
+
+### Typical Workflows
+
+**Active project** — just `ask("...")`. Call `get_project_info()` only when you need the location, the current editions or what is already saved.
+
+**Comparing municipalities** — `list_projects()` → `ask("...", project_id=A)` and `ask("...", project_id=B)` → contrast the answers.
 
 ---
 

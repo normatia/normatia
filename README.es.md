@@ -18,20 +18,31 @@ Normatia es una plataforma de cumplimiento normativo de la edificación para el 
 
 ## Servidor MCP
 
-Normatia proporciona un servidor MCP remoto que da a los asistentes de IA acceso a datos del código técnico español, inteligencia de localización, verificación de cumplimiento y consultas normativas en lenguaje natural — sin instalación necesaria.
+Normatia proporciona un servidor MCP remoto que da a los asistentes de IA acceso a la normativa de edificación española **en el contexto de un proyecto concreto** — sin instalación necesaria.
 
 ```
 https://mcp.normatia.com/mcp
 ```
 
+### Todo gira alrededor de un proyecto
+
+El alcance normativo de Normatia **se define por proyecto**: cada proyecto en normatia.com tiene su municipio, sus normativas aplicables (estatales, autonómicas, municipales), sus documentos subidos, su memoria de datos de obra y sus cálculos guardados.
+
+Eso significa que el asistente nunca tiene que preguntar por la ciudad, la zona climática ni qué edición del CTE aplica: la respuesta llega con esos valores ya resueltos. Y un municipio sin proyecto no tiene respuesta: el servidor lo dice y sugiere crearlo, porque las ordenanzas municipales difieren por completo entre ayuntamientos.
+
 ### Herramientas disponibles
 
-| Herramienta | Descripción |
-| --- | --- |
-| `search_locations` | Buscar localizaciones geográficas españolas (municipios, provincias, comunidades autónomas) |
-| `search_codes` | Buscar códigos y normativas de edificación por tema, ámbito o etiqueta |
-| `verify_compliance` | Verificar si un valor técnico cumple con la normativa para una localización |
-| `ask` | Realizar preguntas en lenguaje natural sobre normativa de edificación española |
+Tres herramientas, todas de **solo lectura**. El servidor MCP no escribe nada en tus proyectos.
+
+| Herramienta | Descripción | Coste |
+| --- | --- | --- |
+| `ask(query, project_id?)` | Consulta en lenguaje natural sobre la normativa que aplica a un proyecto. Es la única que devuelve texto normativo citable. | 1 crédito |
+| `get_project_info(project_id?)` | Contexto completo del proyecto: ubicación, datos técnicos del territorio, normativa aplicable con su versión vigente, archivos, documentos generados, memoria y cálculos. | Gratis |
+| `list_projects()` | Proyectos que el usuario puede consultar, con su `project_id`, ubicación y cuál es el activo. | Gratis |
+
+`ask` ejecuta **el mismo bucle agéntico que el chat de normatia.com**, no una búsqueda de un solo disparo: encadena varias búsquedas, lee la memoria y los cálculos guardados del proyecto, consulta los documentos subidos y cita cada fuente con marcadores `[N]` validados. Como la llamada es síncrona trabaja con presupuestos más cortos — 6 rondas de razonamiento, 6 búsquedas, 120 segundos — así que configura el timeout de tu cliente en 150 segundos o más.
+
+Todas las herramientas aceptan un `project_id` opcional, que se resuelve como `project_id explícito → proyecto activo del usuario`. Para preguntar por otro municipio, llama a `list_projects()` y pasa el identificador que corresponda: se pueden consultar varios proyectos en la misma conversación, y el proyecto activo del usuario en la web no cambia por debajo.
 
 ### Configuración
 
@@ -206,11 +217,12 @@ Para instrucciones de configuración completas para más de 30 clientes MCP, con
 
 Una vez conectado, prueba estos prompts en tu asistente de IA:
 
-- "Busca municipios con nombre Sevilla"
-- "¿Cuál es la zona climática de Madrid?"
-- "¿Cuáles son los requisitos de resistencia al fuego para edificios residenciales?"
-- "Verifica si un muro con U-value 0.35 W/m²K cumple en Sevilla"
-- "Muéstrame la última versión del CTE DB-HE"
+- "¿Qué normativa tengo activa en mi proyecto y de qué año es cada edición?"
+- "¿Qué transmitancia máxima puedo poner en las ventanas de mi proyecto?"
+- "Revisa la memoria de carpintería adjunta y dime si los valores cumplen"
+- "¿Qué altura libre mínima me exige la ordenanza municipal en el proyecto de Sevilla?"
+- "Compara los requisitos de accesibilidad de mi proyecto de Madrid con el de Bilbao"
+- "¿Qué dice la normativa sobre ventilación del garaje, teniendo en cuenta los cálculos que ya guardé?"
 
 ## Configuraciones MCP
 
@@ -258,8 +270,12 @@ El directorio [skills](skills) contiene prompts de sistema reutilizables para ag
 | `/api/v1/codes/{slug}` | GET | Obtener detalle de un código |
 | `/api/v1/codes/{slug}/versions` | GET | Listar versiones de un código |
 | `/api/v1/codes/{slug}/versions/{version}` | GET | Obtener detalle de versión + secciones |
-| `/api/v1/ask` | POST | Consultas normativas con IA |
+| `/api/v1/projects` | GET | Listar los proyectos que el usuario puede consultar |
+| `/api/v1/project/info` | GET | Contexto completo de un proyecto |
+| `/api/v2/ask` | POST | Consulta normativa agéntica sobre un proyecto |
 | `/api/v1/verify` | POST | Verificación de cumplimiento |
+
+`POST /api/v1/ask` (el antiguo endpoint RAG de un solo disparo) está congelado y oculto del esquema público. Sigue funcionando para las integraciones existentes, pero las nuevas deben usar `/api/v2/ask`.
 
 ## Documentación
 

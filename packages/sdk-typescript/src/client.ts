@@ -9,6 +9,8 @@ import {
 import type {
   AskRequest,
   AskResponse,
+  AskV2Request,
+  AskV2Response,
   CodeDetail,
   CodeResult,
   CodeSearchParams,
@@ -19,9 +21,18 @@ import type {
   LocationSearchParams,
   NormatiaConfig,
   PaginatedResponse,
+  ProjectInfoResponse,
+  ProjectListResponse,
   VerifyRequest,
   VerifyResponse,
 } from "./types";
+
+/**
+ * A turn of the agentic engine is capped server-side at 120 s. The client waits
+ * longer on purpose: aborting early does not stop the turn, it just spends the
+ * credit and throws the answer away.
+ */
+const ASK_V2_TIMEOUT_MS = 150_000;
 
 type QueryValue = string | number | boolean | undefined | null;
 type QueryParams = Record<string, QueryValue>;
@@ -111,12 +122,67 @@ export class NormatiaClient {
     );
   }
 
+  /**
+   * @deprecated Calls the frozen `POST /api/v1/ask` — a single semantic search
+   * over the active project, with no tools, project memory or calculations.
+   * Kept for existing integrations; it will be removed in a future release.
+   * Use {@link NormatiaClient.askV2} instead.
+   */
   async ask(request: AskRequest): Promise<AskResponse> {
     this.requireNonEmptyString(request.query, "query");
 
     return this._request<AskResponse>("/api/v1/ask", {
       method: "POST",
       body: request,
+    });
+  }
+
+  /**
+   * Ask a regulatory question through Normatia's agentic engine.
+   *
+   * Runs the same agent loop as the chat on normatia.com: it chains several
+   * searches, reads the project's recorded facts and saved calculations,
+   * consults uploaded documents and cites every source with `[N]` markers that
+   * match `sources[].index`.
+   *
+   * The scope comes from the project, so there is no geography or code filter.
+   * Omit `project_id` to use the user's active project; pass one from
+   * {@link NormatiaClient.listProjects} to query any other, without changing
+   * what the user sees on the website.
+   *
+   * Consumes 1 credit per call, however many searches the agent runs.
+   */
+  async askV2(request: AskV2Request): Promise<AskV2Response> {
+    this.requireNonEmptyString(request.query, "query");
+
+    return this._request<AskV2Response>("/api/v2/ask", {
+      method: "POST",
+      body: request,
+      timeoutMs: ASK_V2_TIMEOUT_MS,
+    });
+  }
+
+  /**
+   * List the projects this key can query, with their `project_id`, location and
+   * which one is active. Free — does not consume quota.
+   */
+  async listProjects(): Promise<ProjectListResponse> {
+    return this._request<ProjectListResponse>("/api/v1/projects");
+  }
+
+  /**
+   * Full context of a project: location and territory tech data, applicable
+   * regulations with their current edition, regulations available but not
+   * selected, uploaded and generated documents, recorded facts and saved
+   * calculations.
+   *
+   * Omit `projectId` to describe the user's active project. Free — does not
+   * consume quota.
+   */
+  async getProjectInfo(projectId?: string): Promise<ProjectInfoResponse> {
+    return this._request<ProjectInfoResponse>("/api/v1/project/info", {
+      method: "GET",
+      query: { project_id: projectId },
     });
   }
 
@@ -146,6 +212,7 @@ export class NormatiaClient {
       query?: QueryParams;
       body?: unknown;
       headers?: HeadersInit;
+      timeoutMs?: number;
     } = {},
   ): Promise<T> {
     const url = new URL(path, `${this.baseUrl}/`);
@@ -174,6 +241,8 @@ export class NormatiaClient {
         method: options.method ?? "GET",
         headers,
         body: requestBody,
+        signal:
+          options.timeoutMs === undefined ? undefined : AbortSignal.timeout(options.timeoutMs),
       });
     } catch (error: unknown) {
       throw new NormatiaError("Network request failed.", 0, error);

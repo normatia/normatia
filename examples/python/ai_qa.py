@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Ask a regulation question to Normatia AI and print answer with sources."""
+"""Ask a regulation question to Normatia and print the answer with its sources.
+
+Uses the agentic endpoint `POST /api/v2/ask`. The scope of the query comes from
+the project, so there is no `geo_id` or code filter to pass: list the projects
+first and pick one, or omit `project_id` to use the user's active project.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +16,10 @@ from typing import Any
 import httpx
 
 DEFAULT_API_URL = "https://api.normatia.com"
+
+# A turn is capped server-side at 120 s. Give the client margin on top: cutting
+# the request early does not stop the turn, it just throws the answer away.
+REQUEST_TIMEOUT = 150.0
 
 
 def get_client_config() -> tuple[str, dict[str, str]]:
@@ -30,37 +39,76 @@ def get_client_config() -> tuple[str, dict[str, str]]:
     return base_url, headers
 
 
+async def pick_project(client: httpx.AsyncClient) -> dict[str, Any] | None:
+    """Return the active project, or the first one the user can access."""
+    response = await client.get("/api/v1/projects")
+    response.raise_for_status()
+    projects = response.json().get("projects") or []
+
+    if not projects:
+        return None
+
+    print("Projects")
+    print("========")
+    for project in projects:
+        mark = " (active)" if project.get("is_active") else ""
+        print(f"- {project.get('name')}{mark} | {project.get('location')} | {project.get('project_id')}")
+    print()
+
+    for project in projects:
+        if project.get("is_active"):
+            return project
+    return projects[0]
+
+
 def print_sources(sources: Any) -> None:
+    """Print the cited sources. `index` is the N of each [N] marker."""
     print("Sources")
     print("=======")
     if not isinstance(sources, list) or not sources:
         print("No sources returned.")
         return
 
-    for index, source in enumerate(sources, start=1):
-        if isinstance(source, dict):
-            title = source.get("title") or source.get("name") or "untitled"
-            section = source.get("section") or source.get("reference") or "no-section"
-            url = source.get("url") or source.get("href")
-            if url:
-                print(f"{index}. {title} | {section} | {url}")
-            else:
-                print(f"{index}. {title} | {section}")
+    for source in sources:
+        if not isinstance(source, dict):
+            print(f"- {source}")
+            continue
+
+        index = source.get("index", "?")
+        title = source.get("document_title") or "untitled"
+        parts = [part for part in (source.get("section_title"), source.get("block_title")) if part]
+        detail = " | ".join(parts)
+        line = f"[{index}] {title}" + (f" | {detail}" if detail else "")
+
+        if source.get("citation_type") == "user_document":
+            # Private document uploaded to the project: it has no public URL.
+            print(f"{line} | (project document)")
+        elif source.get("url"):
+            print(f"{line} | {source['url']}")
         else:
-            print(f"{index}. {source}")
+            print(line)
 
 
 async def main() -> None:
     base_url, headers = get_client_config()
 
-    request_payload = {
-        "query": "¿Cuáles son los requisitos de aislamiento térmico para muros exteriores?",
-        "geo_id": "ES-41091",
-    }
+    query = "¿Cuáles son los requisitos de aislamiento térmico para muros exteriores?"
 
     try:
-        async with httpx.AsyncClient(base_url=base_url, headers=headers, timeout=30.0) as client:
-            response = await client.post("/api/v1/ask", json=request_payload)
+        async with httpx.AsyncClient(
+            base_url=base_url, headers=headers, timeout=REQUEST_TIMEOUT
+        ) as client:
+            project = await pick_project(client)
+            if project is None:
+                print(
+                    "This account has no projects. Create one at normatia.com — the "
+                    "regulatory scope of a query is defined by its project."
+                )
+                sys.exit(1)
+
+            request_payload = {"query": query, "project_id": project["project_id"]}
+
+            response = await client.post("/api/v2/ask", json=request_payload)
             response.raise_for_status()
             payload = response.json()
             if not isinstance(payload, dict):
@@ -68,7 +116,7 @@ async def main() -> None:
 
             print("Question")
             print("========")
-            print(request_payload["query"])
+            print(query)
 
             print("\nAnswer")
             print("======")
@@ -77,17 +125,16 @@ async def main() -> None:
             print()
             print_sources(payload.get("sources"))
 
-            geo_context = payload.get("geo_context")
-            if geo_context is not None:
-                print("\nGeo Context")
-                print("===========")
-                print(geo_context)
+            resolved = payload.get("project")
+            if resolved:
+                print("\nProject")
+                print("=======")
+                print(f"{resolved.get('location')} | {resolved.get('project_id')}")
 
-            metadata = payload.get("metadata")
-            if metadata is not None:
-                print("\nMetadata")
-                print("========")
-                print(metadata)
+            print(
+                f"\nTurn: {payload.get('iterations', 0)} reasoning rounds, "
+                f"{payload.get('searches', 0)} searches."
+            )
 
     except httpx.HTTPStatusError as exc:
         print("\nRequest failed with a non-success HTTP status.")

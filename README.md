@@ -18,20 +18,31 @@ Normatia is a building code compliance platform for Spain's AECO sector (archite
 
 ## MCP Server
 
-Normatia provides a remote MCP server that gives AI assistants access to Spanish building code data, location intelligence, compliance verification, and regulatory Q&A — no installation required.
+Normatia provides a remote MCP server that gives AI assistants access to Spanish building regulations **in the context of a specific project** — no installation required.
 
 ```
 https://mcp.normatia.com/mcp
 ```
 
+### Everything is scoped to a project
+
+Normatia's regulatory scope is defined **per project**: every project on normatia.com carries its municipality, its applicable regulations (national, regional, municipal), its uploaded documents, the recorded facts about the building and any saved calculations.
+
+That means the assistant never has to ask for the city, the climate zone or which edition of the CTE applies — the answer arrives with those values already resolved. And a municipality with no project has no answer: the server says so and points at creating one, because municipal ordinances differ completely between town councils.
+
 ### Available Tools
 
-| Tool | Description |
-| --- | --- |
-| `search_locations` | Search Spanish geographic locations (municipalities, provinces, autonomous communities) |
-| `search_codes` | Search building codes and regulations by topic, scope, or tag |
-| `verify_compliance` | Verify if a technical value complies with regulations for a location |
-| `ask` | Ask natural-language questions about Spanish building regulations |
+Three tools, all **read-only**. Nothing in the MCP surface writes to your projects.
+
+| Tool | Description | Cost |
+| --- | --- | --- |
+| `ask(query, project_id?)` | Ask a natural-language question about the regulations that apply to a project. The only tool that returns citable regulatory text. | 1 credit |
+| `get_project_info(project_id?)` | Full project context: location, territory tech data, applicable regulations with their current edition, files, generated documents, memory and calculations. | Free |
+| `list_projects()` | Projects the user can query, with their `project_id`, location and which one is active. | Free |
+
+`ask` runs the **same agent loop as the chat on normatia.com**, not a single-shot search: it chains several searches, reads the project's memory and saved calculations, consults uploaded documents and cites every source with validated `[N]` markers. Because the call is synchronous it runs on shorter budgets — 6 reasoning rounds, 6 searches, 120 seconds — so set your client's tool-call timeout to 150 seconds or more.
+
+Every tool takes an optional `project_id`, resolved as `explicit project_id → the user's active project`. To ask about another municipality, call `list_projects()` and pass the matching id: several projects can be queried in the same conversation, and the user's active project on the website never changes underneath them.
 
 ### Setup
 
@@ -208,11 +219,12 @@ For full setup instructions for 30+ MCP clients, see [docs.normatia.com/mcp](htt
 
 Once connected, try these prompts in your AI assistant:
 
-- "Search for municipalities named Sevilla"
-- "What climate zone is Madrid in?"
-- "What are the fire resistance requirements for residential structures?"
-- "Verify if a wall with U-value 0.35 W/m²K is compliant in Sevilla"
-- "Show me the latest version of the CTE DB-HE"
+- "Which regulations are active on my project, and which edition of each?"
+- "What is the maximum window U-value I can use on my project?"
+- "Review the attached carpentry schedule and tell me whether the values comply"
+- "What minimum clear height does the municipal ordinance require on the Sevilla project?"
+- "Compare the accessibility requirements of my Madrid project against the Bilbao one"
+- "What does the code say about garage ventilation, given the calculations I already saved?"
 
 ## TypeScript SDK
 
@@ -256,8 +268,12 @@ The [skills](skills) directory contains reusable system prompts for AI agents wo
 | `/api/v1/codes/{slug}` | GET | Get code detail |
 | `/api/v1/codes/{slug}/versions` | GET | List code versions |
 | `/api/v1/codes/{slug}/versions/{version}` | GET | Get version detail + sections |
-| `/api/v1/ask` | POST | AI-powered regulatory Q&A |
+| `/api/v1/projects` | GET | List the projects the user can query |
+| `/api/v1/project/info` | GET | Full context of a project |
+| `/api/v2/ask` | POST | Agentic regulatory Q&A over a project |
 | `/api/v1/verify` | POST | Compliance verification |
+
+`POST /api/v1/ask` (the old single-shot RAG endpoint) is frozen and hidden from the public schema. It still works for existing integrations, but new ones should use `/api/v2/ask`.
 
 ## Documentation
 

@@ -1,14 +1,19 @@
 /**
- * Demonstrates Normatia AI Q&A endpoint usage with raw fetch.
+ * Demonstrates Normatia's agentic Q&A endpoint (POST /api/v2/ask) with raw fetch.
+ *
+ * The scope of a query comes from its project — municipality, selected
+ * regulations, uploaded documents — so there is no geo_id or code filter to
+ * pass. Omit project_id to use the user's active project.
  */
 
 const DEFAULT_API_URL = "https://api.normatia.com";
 
-const REQUEST_BODY = {
-  query: "¿Qué requisitos de eficiencia energética aplican a la fachada de un edificio residencial en Sevilla?",
-  geo_id: "ES-41091",
-  codes: [{ slug: "cte-db-he", version: "2022" }],
-};
+const QUERY =
+  "¿Qué requisitos de eficiencia energética aplican a la fachada de mi edificio?";
+
+// A turn is capped server-side at 120 s. Give the client margin on top: aborting
+// early does not stop the turn, it just throws the answer away.
+const REQUEST_TIMEOUT_MS = 150_000;
 
 function getClientConfig(): { apiKey: string; baseUrl: string } {
   const apiKey = process.env.NORMATIA_API_KEY;
@@ -42,23 +47,27 @@ function formatOutput(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-async function postJson(
+async function request(
   config: { apiKey: string; baseUrl: string },
   path: string,
-  body: unknown,
+  init: { method?: "GET" | "POST"; body?: unknown } = {},
 ): Promise<unknown> {
   const url = `${config.baseUrl}${path}`;
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${config.apiKey}`,
+    Accept: "application/json",
+  };
+  if (init.body !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
 
   let response: Response;
   try {
     response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
+      method: init.method ?? "GET",
+      headers,
+      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (error) {
     throw new Error(`Network error while calling ${url}: ${String(error)}`);
@@ -75,12 +84,15 @@ async function postJson(
   }
 
   if (!response.ok) {
-    throw new Error(`Request failed (${response.status} ${response.statusText}) for ${url}\n${formatOutput(payload)}`);
+    throw new Error(
+      `Request failed (${response.status} ${response.statusText}) for ${url}\n${formatOutput(payload)}`,
+    );
   }
 
   return payload;
 }
 
+/** Print the cited sources. `index` is the N of each [N] marker in the answer. */
 function printSources(sources: unknown): void {
   console.log("\nSources");
   console.log("=======");
@@ -90,38 +102,76 @@ function printSources(sources: unknown): void {
     return;
   }
 
-  for (const [index, item] of sources.entries()) {
+  for (const item of sources) {
     const source = asObject(item);
-    const codeSlug = asString(source.code_slug) ?? "unknown-code";
-    const version = asString(source.version) ?? "n/a";
-    const section =
-      asString(source.section_title) ??
-      asString(source.title) ??
-      asString(source.reference) ??
-      "untitled section";
-    const url = asString(source.url);
+    const index = source.index ?? "?";
+    const title = asString(source.document_title) ?? "untitled";
+    const detail = [asString(source.section_title), asString(source.block_title)]
+      .filter(Boolean)
+      .join(" | ");
+    const line = `[${index}] ${title}${detail ? ` | ${detail}` : ""}`;
 
-    const base = `${index + 1}. ${codeSlug} (${version}) | ${section}`;
-    console.log(url ? `${base} | ${url}` : base);
+    if (source.citation_type === "user_document") {
+      // Private document uploaded to the project: it has no public URL.
+      console.log(`${line} | (project document)`);
+    } else {
+      const url = asString(source.url);
+      console.log(url ? `${line} | ${url}` : line);
+    }
   }
 }
 
 async function main(): Promise<void> {
   const config = getClientConfig();
 
-  console.log("\n== AI Q&A: Energy efficiency requirements in Seville (CTE DB-HE) ==");
+  console.log("\n== Projects reachable with this key ==");
+  const projectList = asObject(await request(config, "/api/v1/projects"));
+  const projects = Array.isArray(projectList.projects) ? projectList.projects : [];
 
-  const payload = asObject(await postJson(config, "/api/v1/ask", REQUEST_BODY));
+  if (projects.length === 0) {
+    console.log(
+      "This account has no projects. Create one at normatia.com — the regulatory " +
+        "scope of a query is defined by its project.",
+    );
+    process.exit(1);
+  }
+
+  for (const item of projects) {
+    const project = asObject(item);
+    const mark = project.is_active ? " (active)" : "";
+    console.log(
+      `- ${asString(project.name) ?? "untitled"}${mark} | ${asString(project.location) ?? "?"} | ${asString(project.project_id)}`,
+    );
+  }
+
+  const target = asObject(projects.find((item) => asObject(item).is_active) ?? projects[0]);
+
+  console.log("\n== Agentic Q&A ==");
+  const payload = asObject(
+    await request(config, "/api/v2/ask", {
+      method: "POST",
+      body: { query: QUERY, project_id: target.project_id },
+    }),
+  );
 
   console.log("\nQuestion");
   console.log("========");
-  console.log(REQUEST_BODY.query);
+  console.log(QUERY);
 
   console.log("\nAnswer");
   console.log("======");
   console.log(asString(payload.answer) ?? "No answer returned.");
 
   printSources(payload.sources);
+
+  const resolved = asObject(payload.project);
+  console.log("\nProject");
+  console.log("=======");
+  console.log(`${asString(resolved.location) ?? "?"} | ${asString(resolved.project_id) ?? "?"}`);
+
+  console.log(
+    `\nTurn: ${payload.iterations ?? 0} reasoning rounds, ${payload.searches ?? 0} searches.`,
+  );
 }
 
 main().catch((error) => {
