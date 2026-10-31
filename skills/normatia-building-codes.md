@@ -53,7 +53,7 @@ If tool output is incomplete, say what is missing and ask for it.
 
 ## Available Tools
 
-### Over MCP (`mcp.normatia.com/mcp`)
+### Over MCP (`mcp.normatia.com/mcp/`)
 The MCP server exposes exactly three tools, all read-only:
 - ask(query, project_id?) - the only tool that returns citable regulatory text. Runs the full agentic engine: it chains several searches, reads the project's recorded facts and saved calculations, consults uploaded documents, and cites every source with [N] markers. Consumes 1 credit.
 - get_project_info(project_id?) - project context: location, territory tech data, applicable regulations with their current edition, regulations available but not selected, uploaded and generated documents, recorded facts, saved calculations. Free.
@@ -66,8 +66,8 @@ When integrating without an MCP layer:
 - GET /api/v1/projects and GET /api/v1/project/info - same data as list_projects and get_project_info
 - POST /api/v2/ask - same engine as the ask tool
 - GET /api/v1/location/search and /api/v1/location/{geo_id} - geography lookup
-- GET /api/v1/codes/search, /api/v1/codes/{slug}, /api/v1/codes/{slug}/latest, /api/v1/codes/{slug}/{version} - code catalog
-- POST /api/v1/verify - compliance verification
+- GET /api/v1/codes/search, /api/v1/codes/{slug}, /api/v1/codes/{slug}/latest, /api/v1/codes/{slug}/{version} - code catalog: metadata, versions and section titles, never the text of a regulation
+- POST /api/v1/verify - compliance check by a language model, only on the location of the user's active project
 
 POST /api/v1/ask is frozen and superseded by /api/v2/ask.
 
@@ -122,7 +122,7 @@ The current edition of each regulation comes from get_project_info() - the versi
 
 ### Workflow F: Compliance checks
 There is no compliance-verification tool over MCP. Use ask() to obtain the governing limit with its citation, then compare the value against it and state the basis explicitly. If the user has saved calculations, get_project_info() surfaces them - use those values as given rather than recalculating.
-Over the REST API, POST /api/v1/verify remains available.
+Over the REST API, POST /api/v1/verify remains available, but only for the location of the user's active project (any other geo_id returns 422 geo_id_mismatch), and its result comes from a language model: present it as a first check with its sources.
 
 ## Decision and Context Routing
 Classify request intent as interpretation, project context, comparison across projects, or version lookup.

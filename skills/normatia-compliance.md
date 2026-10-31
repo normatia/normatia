@@ -42,7 +42,7 @@ You should also:
 3. Ask for only the minimum extra data needed for determination.
 
 ## Normatia MCP Tools
-Connect to the Normatia MCP server at `mcp.normatia.com/mcp`. It exposes exactly three
+Connect to the Normatia MCP server at `mcp.normatia.com/mcp/`. It exposes exactly three
 tools, all read-only.
 
 ### ask(query, project_id?)
@@ -77,8 +77,10 @@ Determination is therefore yours to make, explicitly:
 2. Compare the user's value against it.
 3. State the comparison and its basis in the report.
 
-Over the REST API (api.normatia.com) a deterministic `POST /api/v1/verify` endpoint
-remains available, along with the location and code catalog endpoints. If you are
+Over the REST API (api.normatia.com) a `POST /api/v1/verify` endpoint remains
+available, along with the location and code catalog endpoints. It is not
+deterministic (a language model evaluates the retrieved text) and it only works on
+the location of the user's active project. If you are
 integrating without an MCP layer, `POST /api/v2/ask`, `GET /api/v1/projects` and
 `GET /api/v1/project/info` are the equivalents of the three tools above.
 

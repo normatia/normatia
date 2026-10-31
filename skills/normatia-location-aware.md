@@ -48,7 +48,7 @@ completely between town councils, so there is nothing valid to say. Tell the use
 point them at creating the project on normatia.com.
 
 ## Available Tools
-Connect to the Normatia MCP server at `mcp.normatia.com/mcp`. It exposes exactly three
+Connect to the Normatia MCP server at `mcp.normatia.com/mcp/`. It exposes exactly three
 tools, all read-only. Use them rather than relying on assumptions.
 
 ### list_projects

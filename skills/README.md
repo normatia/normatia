@@ -81,7 +81,7 @@ about a municipality where the user has no project.
 
 All three are read-only. There is no `search_locations`, `search_codes` or
 `verify_compliance` on the MCP server: the geography and code catalog endpoints, and
-deterministic verification, live on the REST API only.
+`POST /api/v1/verify`, live on the REST API only.
 
 ### REST equivalents
 
@@ -95,21 +95,18 @@ deterministic verification, live on the REST API only.
 
 ### MCP Server
 
-The simplest setup is the hosted remote server — no local installation needed:
+The simplest setup is the hosted remote server, with no local installation needed:
 
-```json
-{
-  "mcpServers": {
-    "normatia": {
-      "type": "streamable-http",
-      "url": "https://mcp.normatia.com/mcp",
-      "headers": {
-        "Authorization": "Bearer sk-normatia-..."
-      }
-    }
-  }
-}
-```
+| Setting | Value |
+| --- | --- |
+| URL | `https://mcp.normatia.com/mcp/` |
+| Transport | Streamable HTTP |
+| Auth | OAuth, or `Authorization: Bearer sk-normatia-...` |
+
+The exact config differs per client (`"type": "http"` in VS Code and Claude Code,
+`"url"` in Cursor, `"serverUrl"` in Windsurf, `"type": "remote"` in OpenCode, a
+custom connector in claude.ai and Claude Desktop). Copy the right one from
+[mcp](../mcp) or [docs.normatia.com/mcp](https://docs.normatia.com/mcp/).
 
 ## Combining Skills For Complex Workflows
 

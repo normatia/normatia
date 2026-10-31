@@ -6,7 +6,7 @@ Thanks for your interest in contributing! This guide will help you get started.
 
 ```
 packages/
-  sdk-typescript/  # TypeScript — SDK for the Normatia API
+  sdk-typescript/  # TypeScript SDK for the Normatia API
 examples/
   python/          # Python usage examples
   typescript/      # TypeScript usage examples
@@ -55,7 +55,7 @@ Examples:
 3. **Make your changes** with clear, focused commits.
 4. **Run tests** and linters before pushing.
 5. **Open a PR** against `main` with a clear description of the changes.
-6. **Wait for review** — a maintainer will review and provide feedback.
+6. **Wait for review**: a maintainer will review and provide feedback.
 
 ## Issues and Feature Requests
 
