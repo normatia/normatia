@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Demonstrates Normatia Building Codes API usage:
 # - Search codes by text query
-# - Fetch code detail
-# - List code versions
-# - Fetch a specific version detail
+# - Fetch code detail (with all its versions)
+# - List the versions in force
+# - Fetch a specific version with its section index
+#
+# The catalog returns metadata and section titles, never the text of a
+# regulation. Use POST /api/v2/ask (see ai-qa.sh) to get what a regulation says.
 
 set -euo pipefail
 
@@ -61,15 +64,13 @@ curl -s "$BASE_URL/api/v1/codes/$CODE_SLUG" \
   | print_json_or_raw
 
 echo
-echo "== 3) List versions: ${CODE_SLUG} =="
-# Expected response shape (abbreviated):
-# {
-#   "items": [
-#     {"version": "2022", "status": "active", "published_date": "2022-06-27"},
-#     {"version": "2019", "status": "repealed", "published_date": "2019-12-27"}
-#   ]
-# }
-curl -s "$BASE_URL/api/v1/codes/$CODE_SLUG/versions" \
+echo "== 3) Versions in force: ${CODE_SLUG} =="
+# Expected response shape (abbreviated): an array, empty if none is in force
+# [
+#   {"slug": "cte-db-he", "version": "2022", "status": "active",
+#    "published_date": "...", "source_url": "...", "is_internal": true}
+# ]
+curl -s "$BASE_URL/api/v1/codes/$CODE_SLUG/latest" \
   -H "Authorization: Bearer $NORMATIA_API_KEY" \
   | print_json_or_raw
 
@@ -80,8 +81,8 @@ echo "== 4) Version detail: ${CODE_SLUG} ${CODE_VERSION} =="
 #   "slug": "cte-db-he",
 #   "version": "2022",
 #   "status": "active",
-#   "sections": [{"slug": "he1", "title": "HE 1 ...", "order": 20}]
+#   "sections": [{"slug": "...", "title": "...", "order": 1}]
 # }
-curl -s "$BASE_URL/api/v1/codes/$CODE_SLUG/versions/$CODE_VERSION" \
+curl -s "$BASE_URL/api/v1/codes/$CODE_SLUG/$CODE_VERSION" \
   -H "Authorization: Bearer $NORMATIA_API_KEY" \
   | print_json_or_raw

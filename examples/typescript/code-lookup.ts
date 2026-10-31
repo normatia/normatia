@@ -1,5 +1,8 @@
 /**
  * Demonstrates Normatia Building Codes API usage with raw fetch.
+ *
+ * The catalog returns metadata and section titles, never the text of a
+ * regulation. Use POST /api/v2/ask (see ai-qa.ts) to get what a regulation says.
  */
 
 const DEFAULT_API_URL = "https://api.normatia.com";
@@ -88,12 +91,12 @@ async function main(): Promise<void> {
 
   await runCall(config, "2) Code detail: cte-db-he", "/api/v1/codes/cte-db-he");
 
-  await runCall(config, "3) List versions: cte-db-he", "/api/v1/codes/cte-db-he/versions");
+  await runCall(config, "3) Versions in force: cte-db-he", "/api/v1/codes/cte-db-he/latest");
 
   await runCall(
     config,
-    "4) Version detail: cte-db-he 2022",
-    "/api/v1/codes/cte-db-he/versions/2022",
+    "4) Version detail with its section index: cte-db-he 2022",
+    "/api/v1/codes/cte-db-he/2022",
   );
 }
 

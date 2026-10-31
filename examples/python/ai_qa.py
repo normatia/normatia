@@ -101,7 +101,7 @@ async def main() -> None:
             project = await pick_project(client)
             if project is None:
                 print(
-                    "This account has no projects. Create one at normatia.com — the "
+                    "This account has no projects. Create one at normatia.com: the "
                     "regulatory scope of a query is defined by its project."
                 )
                 sys.exit(1)

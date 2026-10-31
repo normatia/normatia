@@ -1,8 +1,8 @@
 /**
  * Demonstrates Normatia's agentic Q&A endpoint (POST /api/v2/ask) with raw fetch.
  *
- * The scope of a query comes from its project — municipality, selected
- * regulations, uploaded documents — so there is no geo_id or code filter to
+ * The scope of a query comes from its project (municipality, selected
+ * regulations, uploaded documents), so there is no geo_id or code filter to
  * pass. Omit project_id to use the user's active project.
  */
 
@@ -130,7 +130,7 @@ async function main(): Promise<void> {
 
   if (projects.length === 0) {
     console.log(
-      "This account has no projects. Create one at normatia.com — the regulatory " +
+      "This account has no projects. Create one at normatia.com: the regulatory " +
         "scope of a query is defined by its project.",
     );
     process.exit(1);

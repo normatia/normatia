@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Run a sample compliance verification for window thermal transmittance."""
+"""Run a sample compliance verification for window thermal transmittance.
+
+`POST /api/v1/verify` only works on the location of the user's ACTIVE project on
+normatia.com: `geo_id` must be that project's geo_id (see `GET /api/v1/projects`,
+the project with `is_active: true`). Any other geo_id returns 422
+`geo_id_mismatch`. Each call consumes 1 credit.
+"""
 
 from __future__ import annotations
 
@@ -38,9 +44,10 @@ def print_sources(sources: Any) -> None:
 
     for source in sources:
         if isinstance(source, dict):
-            title = source.get("title") or source.get("name") or "untitled"
-            ref = source.get("reference") or source.get("url") or source.get("id") or "no-reference"
-            print(f"  - {title} ({ref})")
+            title = source.get("document_title") or source.get("code_slug") or "untitled"
+            section = source.get("section_title")
+            label = f"{title} | {section}" if section else title
+            print(f"  [{source.get('index', '?')}] {label} ({source.get('url') or 'no url'})")
         else:
             print(f"  - {source}")
 
@@ -56,7 +63,10 @@ def print_result(payload: dict[str, Any]) -> None:
     print(f"result_status: {payload.get('result_status')}")
     print(f"limit_value: {payload.get('limit_value')}")
     print(f"unit: {payload.get('unit')}")
-    print(f"reasoning: {payload.get('reasoning')}")
+    for condition in payload.get("conditions") or []:
+        print(f"condition: {condition}")
+    for warning in payload.get("warnings") or []:
+        print(f"warning: {warning}")
     print_sources(payload.get("sources"))
 
 
@@ -71,7 +81,8 @@ async def main() -> None:
     }
 
     try:
-        async with httpx.AsyncClient(base_url=base_url, headers=headers, timeout=20.0) as client:
+        # The evaluation runs a language model: give it more than a data call.
+        async with httpx.AsyncClient(base_url=base_url, headers=headers, timeout=90.0) as client:
             response = await client.post("/api/v1/verify", json=request_payload)
             response.raise_for_status()
             payload = response.json()

@@ -28,9 +28,10 @@ print_json_or_raw() {
 
 echo
 echo "== 1) Basic search: Sevilla =="
-# Expected response shape (abbreviated):
+# Expected response shape (abbreviated), ordered by level and then by name:
 # {
 #   "results": [
+#     {"geo_id": "ES-41", "name": "Sevilla", "level": "province"},
 #     {"geo_id": "ES-41091", "name": "Sevilla", "level": "municipality"}
 #   ]
 # }
@@ -44,8 +45,7 @@ echo "== 2) Filter by level: municipality =="
 # Expected response shape (abbreviated):
 # {
 #   "results": [
-#     {"geo_id": "ES-41091", "name": "Sevilla", "level": "municipality"},
-#     {"geo_id": "ES-41038", "name": "Dos Hermanas", "level": "municipality"}
+#     {"geo_id": "ES-41091", "name": "Sevilla", "level": "municipality"}
 #   ]
 # }
 curl -s --get "$BASE_URL/api/v1/location/search" \
@@ -59,7 +59,7 @@ echo "== 3) Filter by ancestor_id: municipalities inside Sevilla province (ES-41
 # Expected response shape (abbreviated):
 # {
 #   "results": [
-#     {"geo_id": "ES-41060", "name": "Mairena del Aljarafe", "level": "municipality"}
+#     {"geo_id": "ES-41...", "name": "Mairena del Aljarafe", "level": "municipality"}
 #   ]
 # }
 curl -s --get "$BASE_URL/api/v1/location/search" \
@@ -76,8 +76,11 @@ echo "== 4) Location detail: ES-41091 (Sevilla municipality) =="
 #   "geo_id": "ES-41091",
 #   "name": "Sevilla",
 #   "level": "municipality",
+#   "ancestors": [{"geo_id": "ES", ...}, {"geo_id": "ES-C01", ...}, {"geo_id": "ES-41", ...}],
 #   "tech_data": {"climate_zone": "B4", "...": "..."},
-#   "applicable_codes": [{"slug": "cte-db-he", "normative_scope": "national"}]
+#   "applicable_codes": [
+#     {"slug": "cte-db-he", "title": "...", "normative_scope": "national", "match_reason": "inherited"}
+#   ]
 # }
 curl -s "$BASE_URL/api/v1/location/ES-41091" \
   -H "Authorization: Bearer $NORMATIA_API_KEY" \

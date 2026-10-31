@@ -36,21 +36,12 @@ def print_location_results(results: list[dict[str, Any]]) -> None:
         print("No locations found.")
         return
 
+    # Search results carry geo_id, name and level only. For the ancestors, the
+    # tech data and the applicable codes, call GET /api/v1/location/{geo_id}.
     for index, item in enumerate(results, start=1):
-        ancestors = item.get("ancestors") if isinstance(item, dict) else []
-        if not isinstance(ancestors, list):
-            ancestors = []
-
-        ancestor_names = [
-            ancestor.get("name", "")
-            for ancestor in ancestors
-            if isinstance(ancestor, dict)
-        ]
-
         print(f"{index}. geo_id: {item.get('geo_id')}")
         print(f"   name: {item.get('name')}")
         print(f"   level: {item.get('level')}")
-        print(f"   ancestors: {', '.join(filter(None, ancestor_names)) or 'n/a'}")
 
 
 async def main() -> None:

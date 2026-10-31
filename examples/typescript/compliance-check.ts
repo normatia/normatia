@@ -1,5 +1,10 @@
 /**
  * Demonstrates Normatia Compliance Verification endpoint usage with raw fetch.
+ *
+ * POST /api/v1/verify only works on the location of the user's ACTIVE project on
+ * normatia.com: geo_id must be that project's geo_id (see GET /api/v1/projects,
+ * the project with is_active: true). Any other geo_id returns 422
+ * geo_id_mismatch. Each call consumes 1 credit.
  */
 
 const DEFAULT_API_URL = "https://api.normatia.com";
@@ -10,9 +15,7 @@ const REQUEST_BODY = {
   value: 2.3,
   unit: "W/m2K",
   geo_id: "ES-41091",
-  codes: [{ slug: "cte-db-he", version: "2022" }],
-  context:
-    "Edificio residencial plurifamiliar en Sevilla, proyecto de rehabilitación, mejora de envolvente exterior.",
+  codes: [{ slug: "cte-db-he" }],
 };
 
 function getClientConfig(): { apiKey: string; baseUrl: string } {
@@ -108,11 +111,12 @@ function printSources(sources: unknown): void {
     return;
   }
 
-  for (const [index, item] of sources.entries()) {
+  for (const item of sources) {
     const source = asObject(item);
-    const title = asString(source.section_title) ?? asString(source.title) ?? "untitled section";
-    const reference = asString(source.reference) ?? asString(source.url) ?? "no-reference";
-    console.log(`${index + 1}. ${title} | ${reference}`);
+    const title = asString(source.document_title) ?? asString(source.code_slug) ?? "untitled";
+    const section = asString(source.section_title);
+    const url = asString(source.url) ?? "no url";
+    console.log(`[${source.index ?? "?"}] ${title}${section ? ` | ${section}` : ""} | ${url}`);
   }
 }
 
@@ -124,12 +128,11 @@ async function main(): Promise<void> {
   const payload = asObject(await postJson(config, "/api/v1/verify", REQUEST_BODY));
 
   const isCompliant = payload.is_compliant;
-  const resultStatus =
-    asString(payload.result_status) ?? (typeof isCompliant === "boolean" ? (isCompliant ? "compliant" : "non-compliant") : "unknown");
+  const resultStatus = asString(payload.result_status) ?? "unknown";
 
   const providedValue = payload.provided_value ?? REQUEST_BODY.value;
   const providedUnit = asString(payload.unit) ?? REQUEST_BODY.unit;
-  const limitValue = payload.limit_value ?? payload.requirement ?? "n/a";
+  const limitValue = payload.limit_value ?? "n/a";
 
   console.log("\nCompliance status");
   console.log("=================");
@@ -141,11 +144,16 @@ async function main(): Promise<void> {
   console.log(`provided: ${formatValue(providedValue)} ${providedUnit}`);
   console.log(`limit: ${formatValue(limitValue)} ${providedUnit}`);
 
-  const reasoning = asString(payload.reasoning) ?? asString(payload.explanation);
-  if (reasoning) {
-    console.log("\nReasoning");
-    console.log("=========");
-    console.log(reasoning);
+  const notes = [
+    ...(Array.isArray(payload.conditions) ? payload.conditions : []),
+    ...(Array.isArray(payload.warnings) ? payload.warnings : []),
+  ];
+  if (notes.length > 0) {
+    console.log("\nConditions and warnings");
+    console.log("=======================");
+    for (const note of notes) {
+      console.log(`- ${formatValue(note)}`);
+    }
   }
 
   printSources(payload.sources);

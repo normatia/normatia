@@ -2,6 +2,11 @@
 # Demonstrates Normatia Compliance Verification API usage:
 # - Verify thermal transmittance (U-value) for a window in Seville
 # - Scope the check to CTE DB-HE
+#
+# /api/v1/verify only works on the location of your ACTIVE project on
+# normatia.com: geo_id must be that project's geo_id (see GET /api/v1/projects,
+# the project with "is_active": true). Any other geo_id returns
+# 422 geo_id_mismatch. Each call consumes 1 credit.
 
 set -euo pipefail
 
@@ -32,9 +37,8 @@ VERIFY_BODY="$(cat <<'JSON'
   "unit": "W/m2K",
   "geo_id": "ES-41091",
   "codes": [
-    { "slug": "cte-db-he", "version": "2022" }
-  ],
-  "context": "Edificio residencial plurifamiliar en Sevilla, proyecto de rehabilitación, mejora de envolvente exterior."
+    { "slug": "cte-db-he" }
+  ]
 }
 JSON
 )"
@@ -45,10 +49,13 @@ echo "== Compliance check: Window U-value in Seville (ES-41091) against CTE DB-H
 # {
 #   "is_compliant": true,
 #   "result_status": "compliant",
-#   "requirement": "U <= ...",
-#   "reference": "CTE DB-HE ...",
-#   "explanation": "...",
-#   "sources": [{"code_slug": "cte-db-he", "version": "2022", "section_title": "..."}],
+#   "provided_value": 2.3,
+#   "limit_value": ...,
+#   "unit": "W/m2K",
+#   "conditions": [],
+#   "sources": [{"index": 1, "code_slug": "cte-db-he", "version": "2022",
+#                "document_title": "...", "section_title": "...", "url": "..."}],
+#   "warnings": [],
 #   "geo_context": {"geo_id": "ES-41091", "name": "Sevilla", "climate_zone": "B4"}
 # }
 curl -s -X POST "$BASE_URL/api/v1/verify" \
