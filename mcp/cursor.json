@@ -1,8 +1,7 @@
 {
   "mcpServers": {
     "normatia": {
-      "type": "streamable-http",
-      "url": "https://mcp.normatia.com/mcp",
+      "url": "https://mcp.normatia.com/mcp/",
       "headers": {
         "Authorization": "Bearer sk-normatia-YOUR_API_KEY"
       }

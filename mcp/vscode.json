@@ -1,10 +1,18 @@
 {
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "normatia-api-key",
+      "description": "Normatia API key (sk-normatia-...)",
+      "password": true
+    }
+  ],
   "servers": {
     "normatia": {
-      "type": "streamable-http",
-      "url": "https://mcp.normatia.com/mcp",
+      "type": "http",
+      "url": "https://mcp.normatia.com/mcp/",
       "headers": {
-        "Authorization": "Bearer sk-normatia-YOUR_API_KEY"
+        "Authorization": "Bearer ${input:normatia-api-key}"
       }
     }
   }

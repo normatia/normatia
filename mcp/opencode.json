@@ -1,8 +1,10 @@
 {
-  "mcpServers": {
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
     "normatia": {
-      "type": "streamable-http",
-      "url": "https://mcp.normatia.com/mcp",
+      "type": "remote",
+      "url": "https://mcp.normatia.com/mcp/",
+      "enabled": true,
       "headers": {
         "Authorization": "Bearer sk-normatia-YOUR_API_KEY"
       }

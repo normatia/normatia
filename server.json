@@ -2,17 +2,17 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.normatia/mcp",
   "title": "Normatia",
-  "description": "Servidor MCP de Normatia: consulta la normativa técnica de edificación española en el contexto de tus proyectos, con fuentes citadas.",
+  "description": "Normativa de edificación española en el contexto de tus proyectos de Normatia, con fuentes citadas.",
   "websiteUrl": "https://normatia.com",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://mcp.normatia.com/mcp",
+      "url": "https://mcp.normatia.com/mcp/",
       "headers": [
         {
           "name": "Authorization",
-          "description": "Token de API de Normatia (formato: Bearer sk-normatia-...)",
+          "description": "Clave de API de Normatia (Bearer sk-normatia-...). Opcional: sin ella, el cliente inicia sesión con OAuth.",
           "isRequired": false,
           "isSecret": true
         }

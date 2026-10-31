@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ──────────────────────────────────────────────────────────────
-# Normatia MCP Server — Interactive Installer
+# Normatia MCP Server: interactive installer
 # Configures the Normatia remote MCP server for your AI editor.
-# https://docs.normatia.com/mcp
+# https://docs.normatia.com/mcp/
 # ──────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -15,7 +15,7 @@ CYAN='\033[0;36m'
 RED='\033[0;31m'
 RESET='\033[0m'
 
-MCP_URL="https://mcp.normatia.com/mcp"
+MCP_URL="https://mcp.normatia.com/mcp/"
 
 # ── Helpers ───────────────────────────────────────────────────
 info()    { printf "${CYAN}ℹ${RESET}  %s\n" "$1"; }
@@ -34,53 +34,58 @@ ensure_dir() {
 }
 
 # ── JSON merge (jq) or raw write ─────────────────────────────
+# $1 file, $2 root key, $3 JSON object for the "normatia" entry,
+# $4 optional JSON array of VS Code "inputs" to add.
 write_or_merge() {
   local file="$1"
   local root_key="$2"
-  local api_key="$3"
+  local entry="$3"
+  local inputs="${4:-}"
 
-  local new_entry
-  new_entry=$(cat <<EOF
-{
-  "${root_key}": {
-    "normatia": {
-      "type": "streamable-http",
-      "url": "${MCP_URL}",
-      "headers": {
-        "Authorization": "Bearer ${api_key}"
-      }
-    }
-  }
-}
-EOF
-)
+  local new_config
+  if [[ -n "$inputs" ]]; then
+    new_config="{\"inputs\": ${inputs}, \"${root_key}\": {\"normatia\": ${entry}}}"
+  else
+    new_config="{\"${root_key}\": {\"normatia\": ${entry}}}"
+  fi
 
   if [[ -f "$file" ]]; then
     if has_cmd jq; then
       local merged
       merged=$(jq -s --arg key "$root_key" '
         .[0] as $existing | .[1] as $new |
-        $existing * { ($key): (($existing[$key] // {}) * $new[$key]) }
-      ' "$file" <(echo "$new_entry"))
+        ($existing * { ($key): (($existing[$key] // {}) * $new[$key]) })
+        | if $new.inputs then
+            .inputs = ((($existing.inputs // []) | map(select(.id != "normatia-api-key"))) + $new.inputs)
+          else . end
+      ' "$file" <(echo "$new_config"))
       echo "$merged" > "$file"
       success "Merged normatia server into existing $file"
     else
-      warn "jq not found — cannot merge automatically."
+      warn "jq not found: cannot merge automatically."
       warn "File already exists: $file"
       printf "  Overwrite? ${DIM}(y/N)${RESET} "
       read -r confirm
       if [[ "$confirm" =~ ^[Yy]$ ]]; then
-        echo "$new_entry" > "$file"
+        echo "$new_config" > "$file"
         success "Wrote $file (overwritten)"
       else
-        info "Skipped $file — add the normatia entry manually."
+        info "Skipped $file: add the normatia entry manually."
         return
       fi
     fi
   else
     ensure_dir "$(dirname "$file")"
-    echo "$new_entry" > "$file"
+    echo "$new_config" > "$file"
     success "Created $file"
+  fi
+}
+
+# JSON for the Authorization header, or nothing when the client signs in with OAuth.
+headers_json() {
+  local api_key="$1"
+  if [[ -n "$api_key" ]]; then
+    printf ', "headers": {"Authorization": "Bearer %s"}' "$api_key"
   fi
 }
 
@@ -89,45 +94,60 @@ install_claude_code() {
   local api_key="$1"
   if ! has_cmd claude; then
     error "Claude Code CLI not found. Install it first:"
-    echo "  https://docs.anthropic.com/en/docs/claude-code"
+    echo "  https://code.claude.com/docs"
     return 1
   fi
-  claude mcp add normatia \
-    --transport streamable-http \
-    "$MCP_URL" \
-    -h "Authorization: Bearer ${api_key}"
+  if [[ -n "$api_key" ]]; then
+    claude mcp add --transport http normatia "$MCP_URL" \
+      --header "Authorization: Bearer ${api_key}"
+  else
+    claude mcp add --transport http normatia "$MCP_URL"
+    info "Run /mcp inside Claude Code and sign in to Normatia."
+  fi
   success "Normatia MCP server added to Claude Code"
 }
 
 install_cursor() {
   local api_key="$1"
   local file="${HOME}/.cursor/mcp.json"
-  write_or_merge "$file" "mcpServers" "$api_key"
+  write_or_merge "$file" "mcpServers" "{\"url\": \"${MCP_URL}\"$(headers_json "$api_key")}"
 }
 
 install_vscode() {
   local api_key="$1"
-  local dir="${PWD}/.vscode"
-  local file="${dir}/mcp.json"
-  write_or_merge "$file" "servers" "$api_key"
+  local file="${PWD}/.vscode/mcp.json"
+  if [[ -n "$api_key" ]]; then
+    # The key is not written to the workspace: VS Code asks for it on first
+    # start and keeps it in its secret storage.
+    warn "VS Code will ask for your API key when the server starts; it is not written to $file."
+    write_or_merge "$file" "servers" \
+      "{\"type\": \"http\", \"url\": \"${MCP_URL}\", \"headers\": {\"Authorization\": \"Bearer \${input:normatia-api-key}\"}}" \
+      '[{"type": "promptString", "id": "normatia-api-key", "description": "Normatia API key (sk-normatia-...)", "password": true}]'
+  else
+    write_or_merge "$file" "servers" "{\"type\": \"http\", \"url\": \"${MCP_URL}\"}"
+    info "VS Code will open the Normatia sign-in the first time the server starts."
+  fi
 }
 
 install_windsurf() {
   local api_key="$1"
   local file="${HOME}/.codeium/windsurf/mcp_config.json"
-  write_or_merge "$file" "mcpServers" "$api_key"
+  write_or_merge "$file" "mcpServers" "{\"serverUrl\": \"${MCP_URL}\"$(headers_json "$api_key")}"
 }
 
 install_opencode() {
   local api_key="$1"
   local config_dir="${XDG_CONFIG_HOME:-${HOME}/.config}/opencode"
-  local file="${config_dir}/config.json"
-  write_or_merge "$file" "mcpServers" "$api_key"
+  local file="${config_dir}/opencode.json"
+  write_or_merge "$file" "mcp" "{\"type\": \"remote\", \"url\": \"${MCP_URL}\", \"enabled\": true$(headers_json "$api_key")}"
+  if [[ -z "$api_key" ]]; then
+    info "Run: opencode mcp auth normatia"
+  fi
 }
 
 # ── Main ──────────────────────────────────────────────────────
 main() {
-  printf "\n${BOLD}Normatia MCP Server — Installer${RESET}\n"
+  printf "\n${BOLD}Normatia MCP Server: installer${RESET}\n"
   printf "${DIM}Configure the remote MCP server for your AI editor.${RESET}\n\n"
 
   echo "Select your AI editor:"
@@ -141,12 +161,13 @@ main() {
   printf "Choice ${DIM}(1-5)${RESET}: "
   read -r choice
 
+  local oauth_ok=false
   case "$choice" in
-    1) client="claude-code" ;;
+    1) client="claude-code"; oauth_ok=true ;;
     2) client="cursor" ;;
-    3) client="vscode" ;;
+    3) client="vscode"; oauth_ok=true ;;
     4) client="windsurf" ;;
-    5) client="opencode" ;;
+    5) client="opencode"; oauth_ok=true ;;
     *)
       error "Invalid choice. Exiting."
       exit 1
@@ -155,16 +176,20 @@ main() {
 
   echo ""
 
-  printf "Enter your Normatia API key ${DIM}(sk-normatia-...)${RESET}: "
+  if [[ "$oauth_ok" == true ]]; then
+    printf "Enter your Normatia API key ${DIM}(sk-normatia-..., or leave empty to sign in with OAuth)${RESET}: "
+  else
+    printf "Enter your Normatia API key ${DIM}(sk-normatia-...)${RESET}: "
+  fi
   read -r api_key
 
-  if [[ -z "$api_key" ]]; then
-    error "API key cannot be empty."
+  if [[ -z "$api_key" && "$oauth_ok" != true ]]; then
+    error "API key cannot be empty for this editor."
     exit 1
   fi
 
-  if [[ ! "$api_key" =~ ^sk-normatia- ]]; then
-    warn "Key doesn't start with sk-normatia- — are you sure it's correct?"
+  if [[ -n "$api_key" && ! "$api_key" =~ ^sk-normatia-[0-9a-f]{64}$ ]]; then
+    warn "Key doesn't look like sk-normatia- followed by 64 hex characters. Are you sure it's correct?"
     printf "  Continue anyway? ${DIM}(y/N)${RESET} "
     read -r confirm
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
@@ -184,7 +209,7 @@ main() {
   esac
 
   echo ""
-  info "Documentation: https://docs.normatia.com/mcp"
+  info "Documentation: https://docs.normatia.com/mcp/"
   echo ""
 }
 
