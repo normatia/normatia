@@ -3,11 +3,14 @@ export interface NormatiaConfig {
   baseUrl?: string;
 }
 
-export type LocationLevel = "municipality" | "province" | "autonomous_community";
+/** Geographic level of a location, as the API returns it. */
+export type LocationLevel = "country" | "region" | "province" | "municipality";
 
 export interface LocationSearchParams {
+  /** Text to look for in the name. Case- and accent-insensitive. */
   q: string;
   level?: LocationLevel;
+  /** Only search inside this geography, e.g. `ES-41` (province of Sevilla). */
   ancestor_id?: string;
 }
 
@@ -17,32 +20,36 @@ export interface Ancestor {
   level: LocationLevel | string;
 }
 
+/** A regulation that applies to a location. */
 export interface ApplicableCode {
   slug: string;
   title: string;
-  short_title?: string;
-  normative_scope?: string;
-  version?: string;
+  normative_scope: string;
+  /** `direct` when attached to this same location, `inherited` when it comes from an ancestor. */
+  match_reason: "direct" | "inherited" | string;
 }
 
 export interface LocationResult {
   geo_id: string;
   name: string;
   level: LocationLevel | string;
-  ancestors?: Ancestor[];
 }
 
 export interface LocationDetail {
   geo_id: string;
   name: string;
   level: LocationLevel | string;
+  /** Ancestors from the widest (country) to the closest. */
   ancestors: Ancestor[];
-  tech_data: Record<string, unknown>;
+  /** Territory tech data (climate_zone, altitude_m, wind_zone, ...); `null` when there is none. */
+  tech_data: Record<string, unknown> | null;
   applicable_codes: ApplicableCode[];
 }
 
 export interface CodeSearchParams {
+  /** Text to look for in the title. */
   q?: string;
+  /** national | regional | provincial | municipal | sectoral | supramunicipal | european */
   normative_scope?: string;
   tag?: string;
   page?: number;
@@ -60,78 +67,64 @@ export interface PaginatedResponse<T> {
 export interface CodeResult {
   slug: string;
   title: string;
-  short_title?: string;
-  description?: string;
-  normative_scope?: string;
-  tags?: string[];
-  country_code?: string;
+  short_title?: string | null;
+  normative_scope: string;
+  tags?: string[] | null;
 }
 
+/** A document (version) of a regulation, as listed in {@link CodeDetail}. */
 export interface DocumentVersion {
   version: string;
-  title?: string;
-  status?: string;
-  published_date?: string;
-  effective_date?: string;
-  description?: string;
-  author?: string;
-  source_url?: string;
+  title: string;
+  /** active | repealed | draft | in_progress */
+  status: string;
+  published_date?: string | null;
+  effective_date?: string | null;
+  /** `true` when the text is loaded in Normatia and can be queried with `askV2`. */
+  is_internal: boolean;
 }
 
 export interface CodeDetail {
   slug: string;
   title: string;
-  short_title?: string;
-  description?: string;
+  short_title?: string | null;
+  description?: string | null;
   normative_scope: string;
-  tags?: string[];
+  tags?: string[] | null;
   country_code: string;
+  /** Versions of the regulation, those in force first. */
   documents: DocumentVersion[];
-}
-
-export interface Section {
-  id?: string;
-  title: string;
-  content?: string;
-  order?: number;
-  sections?: Section[];
-}
-
-export interface CodeVersionDetail {
-  slug: string;
-  version: string;
-  title: string;
-  status: string;
-  published_date?: string;
-  effective_date?: string;
-  description?: string;
-  author?: string;
-  source_url?: string;
-  sections: Section[];
 }
 
 export interface CodeReference {
   slug: string;
+  /**
+   * Accepted by the API but currently ignored: verification always searches the
+   * versions in force.
+   */
   version?: string;
 }
 
+/** A source of the frozen `POST /api/v1/ask`. */
 export interface Source {
-  slug?: string;
-  version?: string;
-  title?: string;
-  section_id?: string;
-  section_title?: string;
-  excerpt?: string;
-  source_url?: string;
+  index: number;
+  citation_type?: string;
+  code_slug?: string;
+  version?: string | null;
+  document_title?: string | null;
+  section_title?: string | null;
+  block_title?: string | null;
+  block_id?: string | null;
+  url?: string | null;
+  similarity_score?: number | null;
   [key: string]: unknown;
 }
 
+/** Location used to resolve a verification or a frozen v1 question. */
 export interface GeoContext {
   geo_id: string;
-  name?: string;
-  level?: LocationLevel | string;
-  ancestors?: Ancestor[];
-  [key: string]: unknown;
+  name: string;
+  climate_zone?: string | null;
 }
 
 /**
@@ -148,7 +141,8 @@ export interface AskRequest {
 export interface AskResponse {
   answer: string;
   sources: Source[];
-  geo_context?: GeoContext;
+  geo_context?: GeoContext | null;
+  tokens_used?: number | null;
 }
 
 /**
@@ -265,7 +259,7 @@ export interface ProjectCalculator {
   title?: string | null;
 }
 
-/** Full context of a project — the same context the agentic engine works from. */
+/** Full context of a project: the same context the agentic engine works from. */
 export interface ProjectInfoResponse {
   project_id: string;
   name?: string | null;
@@ -283,25 +277,47 @@ export interface ProjectInfoResponse {
   available_calculators: ProjectCalculator[];
 }
 
+/**
+ * Body of `POST /api/v1/verify`.
+ *
+ * `geo_id` must be the location of the user's active project on normatia.com;
+ * otherwise the API answers 422 `geo_id_mismatch` (or 400 `no_active_project`).
+ */
 export interface VerifyRequest {
   element: string;
   parameter: string;
+  /** Must be greater than or equal to 0. */
   value: number;
   unit: string;
   geo_id: string;
+  /** Restrict the search to these regulations (among those that apply to the location). */
   codes?: CodeReference[];
+  /** Accepted by the API but currently not used in the evaluation. */
   context?: string;
 }
 
+/** A source cited by a verification. */
+export interface VerifySource {
+  index: number;
+  code_slug: string;
+  version?: string | null;
+  document_title?: string | null;
+  section_title?: string | null;
+  url?: string | null;
+}
+
 export interface VerifyResponse {
-  result_status: string;
+  is_compliant: boolean;
+  /** compliant | conditional | non_compliant | undetermined */
+  result_status: "compliant" | "conditional" | "non_compliant" | "undetermined" | string;
   element: string;
   parameter: string;
   provided_value: number;
-  limit_value: number;
+  /** `null` when the limit is not quantifiable or was not found. */
+  limit_value: number | null;
   unit: string;
-  conditions?: string[];
-  warnings?: string[];
-  sources: Source[];
-  geo_context: GeoContext;
+  conditions: string[];
+  warnings: string[];
+  sources: VerifySource[];
+  geo_context: GeoContext | null;
 }

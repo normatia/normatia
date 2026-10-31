@@ -53,6 +53,11 @@ console.log(answer.answer);
 
 ## Authentication
 
+Create a key on normatia.com, in [your account](https://normatia.com/es/area-usuario/cuenta)
+(section "Claves API"). API access requires an organization on a paid plan; otherwise
+every call fails with `403 plan_required`. The key acts as the user who created it:
+it sees the same projects and spends the same credits.
+
 Pass your API key to the client constructor. The SDK sends:
 
 - Header: `Authorization: Bearer sk-normatia-xxxxx`
@@ -67,37 +72,44 @@ const client = new NormatiaClient({
 
 ## API Methods
 
+Every method calls an existing route of the API and resolves with its JSON
+body. Data methods (locations, codes, projects) are free and limited to 60
+requests per minute; `askV2` and `verify` consume 1 credit per call.
+
 ### searchLocations(params)
 
-Search geographic locations.
+Search countries, autonomous communities, provinces and municipalities by name
+(case- and accent-insensitive, up to 50 results).
 
 ```ts
 const data = await client.searchLocations({
-  q: "Barcelona",
+  q: "Sevilla",
   level: "municipality",
 });
 
-// { results: LocationResult[] }
+// { results: LocationResult[] }, e.g. { geo_id: "ES-41091", name: "Sevilla", level: "municipality" }
 ```
 
 ### getLocation(geoId)
 
-Get full details for a location.
+Get a location with its ancestors, its tech data and the regulations that apply
+to it, its own and those inherited from its ancestors.
 
 ```ts
-const location = await client.getLocation("ES-CT-B");
+const location = await client.getLocation("ES-41091");
 
+console.log(location.tech_data?.climate_zone);
 // LocationDetail
 ```
 
 ### searchCodes(params?)
 
-Search building codes with optional filters and pagination.
+Search the regulation catalog by title, scope or tag, with pagination.
 
 ```ts
 const codes = await client.searchCodes({
-  q: "db-si",
-  normative_scope: "state",
+  q: "ahorro",
+  normative_scope: "national",
   page: 1,
   page_size: 20,
 });
@@ -105,39 +117,27 @@ const codes = await client.searchCodes({
 // PaginatedResponse<CodeResult>
 ```
 
+`normative_scope` takes `national`, `regional`, `provincial`, `municipal`,
+`sectoral`, `supramunicipal` or `european`.
+
 ### getCode(slug)
 
-Get code metadata and available document versions.
+Get a regulation with all its versions (`documents`), those in force first.
 
 ```ts
-const code = await client.getCode("cte-db-si");
+const code = await client.getCode("cte-db-he");
 
 // CodeDetail
 ```
 
-### getCodeVersions(slug)
-
-List versions for a building code.
-
-```ts
-const versions = await client.getCodeVersions("cte-db-si");
-
-// PaginatedResponse<DocumentVersion>
-```
-
-### getCodeVersion(slug, version)
-
-Get a specific code version with sections.
-
-```ts
-const version = await client.getCodeVersion("cte-db-si", "2023-12");
-
-// CodeVersionDetail
-```
+The API also has `GET /api/v1/codes/{slug}/latest` (versions in force) and
+`GET /api/v1/codes/{slug}/{version}` (one version with its section index); the
+SDK has no method for them yet. The catalog never returns the text of a
+regulation: to get what a regulation says, with citations, use `askV2`.
 
 ### listProjects()
 
-List the projects this key can query. Free — does not consume quota.
+List the projects this key can query. Free: it does not consume quota.
 
 ```ts
 const { projects } = await client.listProjects();
@@ -151,7 +151,7 @@ const { projects } = await client.listProjects();
 Full context of a project: location and territory tech data, applicable
 regulations with their current edition, regulations available but not selected,
 uploaded and generated documents, recorded facts and saved calculations. Omit
-the argument to describe the active project. Free — does not consume quota.
+the argument to describe the active project. Free: it does not consume quota.
 
 ```ts
 const project = await client.getProjectInfo("3f8c1a90-5b2e-4d77-9d21-0e5f4a6c8b13");
@@ -161,7 +161,7 @@ const project = await client.getProjectInfo("3f8c1a90-5b2e-4d77-9d21-0e5f4a6c8b1
 
 ### askV2(request)
 
-Ask a regulatory question through the agentic engine — the same agent loop as
+Ask a regulatory question through the agentic engine, the same agent loop as
 the chat on normatia.com. It chains several searches, reads the project's
 recorded facts and saved calculations, consults uploaded documents and cites
 every source with `[N]` markers that match `sources[].index`.
@@ -177,23 +177,23 @@ const answer = await client.askV2({
 
 console.log(answer.answer);
 for (const source of answer.sources) {
-  console.log(`[${source.index}] ${source.document_title} — ${source.url ?? "project document"}`);
+  console.log(`[${source.index}] ${source.document_title}: ${source.url ?? "project document"}`);
 }
 
 // AskV2Response
 ```
 
-A turn takes noticeably longer than a plain search — the server caps it at 6
+A turn takes noticeably longer than a plain search: the server caps it at 6
 reasoning rounds, 6 searches and 120 seconds, and the SDK waits up to 150
 seconds. Each call consumes **1 credit**, however many searches the agent runs.
 
-### ask(request) — deprecated
+### ask(request) (deprecated)
 
 Calls the frozen `POST /api/v1/ask`: a single semantic search over the active
 project, with no tools, project memory or calculations. Kept for existing
 integrations and scheduled for removal. **Use `askV2` instead.**
 
-The endpoint no longer accepts `geo_id`, `codes` or `messages` — sending any of
+The endpoint no longer accepts `geo_id`, `codes` or `messages`: sending any of
 them returns `422`.
 
 ```ts
@@ -206,21 +206,31 @@ const answer = await client.ask({
 
 ### verify(request)
 
-Run a compliance verification check for a specific parameter.
+Check a technical parameter against the regulations in force for the location
+of the user's **active project**. `geo_id` must be that project's location
+(find it with `listProjects()`, the project with `is_active: true`); any other
+`geo_id` returns `422 geo_id_mismatch`, and a user with no active project gets
+`400 no_active_project`. The active project is changed on normatia.com.
+
+The evaluation is made by a language model from the retrieved regulatory text,
+so treat it as a first check with its sources, not as a certification.
 
 ```ts
 const verification = await client.verify({
-  element: "stair",
-  parameter: "width",
-  value: 1.1,
-  unit: "m",
-  geo_id: "ES-MD",
-  codes: [{ slug: "cte-db-si", version: "2023-12" }],
-  context: "Residential building evacuation path",
+  element: "Fachada de ladrillo cara vista",
+  parameter: "transmitancia térmica",
+  value: 0.35,
+  unit: "W/m²K",
+  geo_id: "ES-41091",
+  codes: [{ slug: "cte-db-he" }],
 });
 
+console.log(verification.result_status, verification.limit_value);
 // VerifyResponse
 ```
+
+`codes[].version` and `context` are accepted by the API but currently ignored:
+the search always uses the versions in force.
 
 ## TypeScript Types
 
@@ -228,14 +238,14 @@ The SDK exports all request and response types, including:
 
 - `NormatiaConfig`
 - `LocationSearchParams`, `LocationResult`, `LocationDetail`
-- `CodeSearchParams`, `CodeResult`, `CodeDetail`, `DocumentVersion`, `CodeVersionDetail`
+- `CodeSearchParams`, `CodeResult`, `CodeDetail`, `DocumentVersion`
 - `AskV2Request`, `AskV2Response`, `AskV2Source`, `AskV2Project`
 - `ProjectListResponse`, `ProjectListItem`, `ProjectInfoResponse`
 - Project sub-entities: `ProjectGeoContext`, `ProjectCollection`, `ProjectUnselectedCollection`, `ProjectGeneratedDocument`, `ProjectMemoryFact`, `ProjectCalculation`, `ProjectCalculator`
-- `VerifyRequest`, `VerifyResponse`
+- `VerifyRequest`, `VerifyResponse`, `VerifySource`, `CodeReference`
 - `AskRequest`, `AskResponse` (deprecated, for the frozen v1 endpoint)
 - `PaginatedResponse<T>`
-- Shared entities: `Ancestor`, `ApplicableCode`, `Section`, `Source`, `GeoContext`
+- Shared entities: `Ancestor`, `ApplicableCode`, `Source`, `GeoContext`
 
 Example:
 
@@ -244,6 +254,20 @@ import type { AskV2Request, AskV2Response, ProjectInfoResponse, VerifyResponse }
 ```
 
 ## Error Handling
+
+The API sends its errors as `{"detail": {"error": "<code>", "message": "..."}}`.
+Every SDK error exposes:
+
+- `statusCode`: the HTTP status (0 for network failures)
+- `code`: the machine-readable code from `detail.error`, such as
+  `missing_api_key`, `plan_required`, `not_found`, `project_not_found`,
+  `no_active_project`, `geo_id_mismatch`, `rate_limit_exceeded` or
+  `quota_exceeded`. Branch on this, not on the message.
+- `message`: `detail.message` when the API sends one (in English or Spanish);
+  otherwise a summary built from the code, the validation errors or the HTTP
+  status
+- `detail`: the raw `detail` value, with extra fields such as `remaining` and
+  `reset_at` on `quota_exceeded`
 
 The SDK throws typed errors for common HTTP statuses:
 
@@ -255,23 +279,17 @@ The SDK throws typed errors for common HTTP statuses:
 - `NormatiaError` (fallback for other API/network errors)
 
 ```ts
-import { NormatiaClient, AuthenticationError, ValidationError, NormatiaError } from "normatia";
+import { NormatiaClient, AuthenticationError, RateLimitError, NormatiaError } from "normatia";
 
 try {
-  await client.verify({
-    element: "window",
-    parameter: "area",
-    value: 0,
-    unit: "m2",
-    geo_id: "ES-MD",
-  });
+  await client.askV2({ query: "¿Qué altura libre mínima exige la ordenanza?" });
 } catch (error) {
   if (error instanceof AuthenticationError) {
     console.error("Invalid API key");
-  } else if (error instanceof ValidationError) {
-    console.error("Request payload is invalid", error.detail);
+  } else if (error instanceof RateLimitError && error.code === "quota_exceeded") {
+    console.error("No credits left until", (error.detail as { reset_at?: string | null })?.reset_at);
   } else if (error instanceof NormatiaError) {
-    console.error(`Normatia API error (${error.statusCode}): ${error.message}`);
+    console.error(`Normatia API error ${error.statusCode} (${error.code}): ${error.message}`);
   } else {
     console.error("Unexpected error", error);
   }
@@ -298,9 +316,8 @@ const client = new NormatiaClient({
 
 ## API Documentation
 
-- Main API docs: https://docs.normatia.com
-- OpenAPI schema: https://api.normatia.com/openapi.json
-- Repository docs: https://github.com/normatia/normatia-docs
+- API reference: https://docs.normatia.com
+- Authentication, limits and error codes: https://docs.normatia.com/api-reference/authentication/
 
 ## License
 

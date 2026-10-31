@@ -14,8 +14,6 @@ import type {
   CodeDetail,
   CodeResult,
   CodeSearchParams,
-  CodeVersionDetail,
-  DocumentVersion,
   LocationDetail,
   LocationResult,
   LocationSearchParams,
@@ -105,25 +103,8 @@ export class NormatiaClient {
     return this._request<CodeDetail>(`/api/v1/codes/${encodeURIComponent(normalizedSlug)}`);
   }
 
-  async getCodeVersions(slug: string): Promise<PaginatedResponse<DocumentVersion>> {
-    const normalizedSlug = this.requireNonEmptyString(slug, "slug");
-
-    return this._request<PaginatedResponse<DocumentVersion>>(
-      `/api/v1/codes/${encodeURIComponent(normalizedSlug)}/versions`,
-    );
-  }
-
-  async getCodeVersion(slug: string, version: string): Promise<CodeVersionDetail> {
-    const normalizedSlug = this.requireNonEmptyString(slug, "slug");
-    const normalizedVersion = this.requireNonEmptyString(version, "version");
-
-    return this._request<CodeVersionDetail>(
-      `/api/v1/codes/${encodeURIComponent(normalizedSlug)}/versions/${encodeURIComponent(normalizedVersion)}`,
-    );
-  }
-
   /**
-   * @deprecated Calls the frozen `POST /api/v1/ask` — a single semantic search
+   * @deprecated Calls the frozen `POST /api/v1/ask`: a single semantic search
    * over the active project, with no tools, project memory or calculations.
    * Kept for existing integrations; it will be removed in a future release.
    * Use {@link NormatiaClient.askV2} instead.
@@ -164,7 +145,7 @@ export class NormatiaClient {
 
   /**
    * List the projects this key can query, with their `project_id`, location and
-   * which one is active. Free — does not consume quota.
+   * which one is active. Free: it does not consume quota.
    */
   async listProjects(): Promise<ProjectListResponse> {
     return this._request<ProjectListResponse>("/api/v1/projects");
@@ -176,7 +157,7 @@ export class NormatiaClient {
    * selected, uploaded and generated documents, recorded facts and saved
    * calculations.
    *
-   * Omit `projectId` to describe the user's active project. Free — does not
+   * Omit `projectId` to describe the user's active project. Free: it does not
    * consume quota.
    */
   async getProjectInfo(projectId?: string): Promise<ProjectInfoResponse> {
@@ -186,6 +167,15 @@ export class NormatiaClient {
     });
   }
 
+  /**
+   * Check a technical parameter against the regulations in force for the
+   * location of the user's active project.
+   *
+   * `geo_id` must be that project's location: any other answers 422
+   * `geo_id_mismatch`, and a user without an active project gets 400
+   * `no_active_project`. The result is produced by a language model from the
+   * retrieved regulatory text, with its sources. Consumes 1 credit per call.
+   */
   async verify(request: VerifyRequest): Promise<VerifyResponse> {
     this.requireNonEmptyString(request.element, "element");
     this.requireNonEmptyString(request.parameter, "parameter");
@@ -264,7 +254,7 @@ export class NormatiaClient {
     }
 
     if (!response.ok) {
-      throw this.mapError(response.status, payload);
+      throw this.mapError(response.status, response.statusText, payload);
     }
 
     if (payload === undefined) {
@@ -274,62 +264,69 @@ export class NormatiaClient {
     return payload as T;
   }
 
-  private mapError(statusCode: number, payload: unknown): NormatiaError {
-    const detail = this.extractDetail(payload);
+  /**
+   * Build a typed error from an API error response.
+   *
+   * The API wraps its errors in `detail`: `{"detail": {"error": "<code>",
+   * "message": "..."}}`. Some carry no `message` (the 429s), validation errors
+   * send `detail` as a list, an unknown route sends `{"detail": "Not Found"}`,
+   * and a few responses put `error`/`message` at the root of the body (the
+   * 413 and the MCP gateway). The message falls back in that order and ends at
+   * the HTTP status text.
+   */
+  private mapError(statusCode: number, statusText: string, payload: unknown): NormatiaError {
+    const body = this.isRecord(payload) ? payload : undefined;
+    const detail = body && "detail" in body ? body.detail : payload;
+    const nested = this.isRecord(detail) && !Array.isArray(detail) ? detail : undefined;
+
+    const code = this.asString(nested?.error) ?? this.asString(body?.error);
+    const status = `${statusCode}${statusText ? ` ${statusText}` : ""}`;
     const message =
-      this.extractMessage(payload) ??
+      this.asString(nested?.message) ??
+      this.asString(body?.message) ??
+      this.asString(detail) ??
+      this.validationMessage(detail) ??
+      (code ? `${code} (${status})` : undefined) ??
       (statusCode > 0
-        ? `Normatia API request failed with status ${statusCode}.`
+        ? `Normatia API request failed with status ${status}.`
         : "Normatia API request failed.");
 
     switch (statusCode) {
       case 401:
-        return new AuthenticationError(message, detail);
+        return new AuthenticationError(message, detail, code);
       case 403:
-        return new ForbiddenError(message, detail);
+        return new ForbiddenError(message, detail, code);
       case 404:
-        return new NotFoundError(message, detail);
+        return new NotFoundError(message, detail, code);
       case 422:
-        return new ValidationError(message, detail);
+        return new ValidationError(message, detail, code);
       case 429:
-        return new RateLimitError(message, detail);
+        return new RateLimitError(message, detail, code);
       default:
-        return new NormatiaError(message, statusCode, detail);
+        return new NormatiaError(message, statusCode, detail, code);
     }
   }
 
-  private extractMessage(payload: unknown): string | undefined {
-    if (!this.isRecord(payload)) {
+  /** Summarise a FastAPI validation error list: `body.query: Field required`. */
+  private validationMessage(detail: unknown): string | undefined {
+    if (!Array.isArray(detail) || detail.length === 0) {
       return undefined;
     }
 
-    if (typeof payload.message === "string") {
-      return payload.message;
-    }
+    const parts = detail.slice(0, 3).map((item) => {
+      if (!this.isRecord(item)) {
+        return String(item);
+      }
+      const loc = Array.isArray(item.loc) ? item.loc.join(".") : undefined;
+      const msg = this.asString(item.msg) ?? "invalid value";
+      return loc ? `${loc}: ${msg}` : msg;
+    });
 
-    const nestedError = payload.error;
-    if (this.isRecord(nestedError) && typeof nestedError.message === "string") {
-      return nestedError.message;
-    }
-
-    return undefined;
+    return parts.join("; ");
   }
 
-  private extractDetail(payload: unknown): unknown {
-    if (!this.isRecord(payload)) {
-      return payload;
-    }
-
-    if ("detail" in payload) {
-      return payload.detail;
-    }
-
-    const nestedError = payload.error;
-    if (this.isRecord(nestedError) && "details" in nestedError) {
-      return nestedError.details;
-    }
-
-    return payload;
+  private asString(value: unknown): string | undefined {
+    return typeof value === "string" && value.trim().length > 0 ? value : undefined;
   }
 
   private isRecord(value: unknown): value is Record<string, unknown> {
