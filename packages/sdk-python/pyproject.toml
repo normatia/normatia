@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "normatia"
+version = "0.1.0"
+description = "Normatia API client: Spanish parcels, constraints, planning and regulations as data."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [{ name = "Normatia", email = "hola@normatia.com" }]
+keywords = ["normatia", "catastro", "urbanismo", "normativa", "cte", "parcelas", "spain"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Typing :: Typed",
+]
+dependencies = [
+  "httpx>=0.25,<1",
+  "typing_extensions>=4.7; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[project.urls]
+Homepage = "https://normatia.com"
+Documentation = "https://docs.normatia.com"
+Repository = "https://github.com/SiloCreativo/normatia-devtools"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/normatia"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
