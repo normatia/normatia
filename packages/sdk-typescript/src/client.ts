@@ -17,10 +17,13 @@ import type {
   LocationDetail,
   LocationResult,
   LocationSearchParams,
+  MeResponse,
   NormatiaConfig,
   PaginatedResponse,
   ProjectInfoResponse,
   ProjectListResponse,
+  UsageParams,
+  UsageResponse,
   VerifyRequest,
   VerifyResponse,
 } from "./types";
@@ -195,6 +198,27 @@ export class NormatiaClient {
     });
   }
 
+  /**
+   * The key, its organization, what it has turned on (API and MCP), its
+   * per-minute limits and the credits left this month. The first call to make
+   * when integrating: if it answers, the key works. Free.
+   */
+  async getMe(): Promise<MeResponse> {
+    return this._request<MeResponse>("/v1/me");
+  }
+
+  /**
+   * Calls and credits of the key's organization between two dates (UTC, both
+   * included; YYYY-MM-DD), by endpoint and by day, with this key's share.
+   * Defaults to the current month; at most 92 days per call. Free.
+   */
+  async getUsage(params: UsageParams = {}): Promise<UsageResponse> {
+    return this._request<UsageResponse>("/v1/usage", {
+      method: "GET",
+      query: { from: params.from, to: params.to },
+    });
+  }
+
   private async _request<T>(
     path: string,
     options: {
@@ -254,7 +278,7 @@ export class NormatiaClient {
     }
 
     if (!response.ok) {
-      throw this.mapError(response.status, response.statusText, payload);
+      throw this.mapError(response.status, response.statusText, payload, response.headers);
     }
 
     if (payload === undefined) {
@@ -267,19 +291,23 @@ export class NormatiaClient {
   /**
    * Build a typed error from an API error response.
    *
-   * The API wraps its errors in `detail`: `{"detail": {"error": "<code>",
-   * "message": "..."}}`. Some carry no `message` (the 429s), validation errors
-   * send `detail` as a list, an unknown route sends `{"detail": "Not Found"}`,
-   * and a few responses put `error`/`message` at the root of the body (the
-   * 413 and the MCP gateway). The message falls back in that order and ends at
-   * the HTTP status text.
+   * The `/api/v1` and `/api/v2` routes wrap their errors in `detail`:
+   * `{"detail": {"error": "<code>", "message": "..."}}`. Validation errors send
+   * `detail` as a list, an unknown route sends `{"detail": "Not Found"}`, and
+   * the MCP gateway puts `error`/`message` at the root. The `/v1` routes answer
+   * RFC 9457 problems: `{"code": "<code>", "detail": "<message>", ...}`. The
+   * message falls back in that order and ends at the HTTP status text.
    */
-  private mapError(statusCode: number, statusText: string, payload: unknown): NormatiaError {
+  private mapError(statusCode: number, statusText: string, payload: unknown, headers?: Headers): NormatiaError {
     const body = this.isRecord(payload) ? payload : undefined;
     const detail = body && "detail" in body ? body.detail : payload;
     const nested = this.isRecord(detail) && !Array.isArray(detail) ? detail : undefined;
 
-    const code = this.asString(nested?.error) ?? this.asString(body?.error);
+    const code = this.asString(nested?.error) ?? this.asString(body?.error) ?? this.asString(body?.code);
+    const requestId =
+      headers?.get("x-request-id") ?? this.asString(nested?.request_id) ?? this.asString(body?.request_id);
+    const retryAfterHeader = Number.parseInt(headers?.get("retry-after") ?? "", 10);
+    const retryAfter = Number.isFinite(retryAfterHeader) ? retryAfterHeader : undefined;
     const status = `${statusCode}${statusText ? ` ${statusText}` : ""}`;
     const message =
       this.asString(nested?.message) ??
@@ -293,17 +321,17 @@ export class NormatiaClient {
 
     switch (statusCode) {
       case 401:
-        return new AuthenticationError(message, detail, code);
+        return new AuthenticationError(message, detail, code, requestId);
       case 403:
-        return new ForbiddenError(message, detail, code);
+        return new ForbiddenError(message, detail, code, requestId);
       case 404:
-        return new NotFoundError(message, detail, code);
+        return new NotFoundError(message, detail, code, requestId);
       case 422:
-        return new ValidationError(message, detail, code);
+        return new ValidationError(message, detail, code, requestId);
       case 429:
-        return new RateLimitError(message, detail, code);
+        return new RateLimitError(message, detail, code, requestId, retryAfter);
       default:
-        return new NormatiaError(message, statusCode, detail, code);
+        return new NormatiaError(message, statusCode, detail, code, requestId);
     }
   }
 

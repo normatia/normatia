@@ -321,3 +321,65 @@ export interface VerifyResponse {
   sources: VerifySource[];
   geo_context: GeoContext | null;
 }
+
+/** `GET /v1/me`: the key, its organization and its limits. */
+export interface MeResponse {
+  key: {
+    id: string;
+    name: string | null;
+    /** Last characters of the key, as shown in Mi cuenta > Claves API. */
+    hint: string;
+    created_at: string;
+    last_used_at: string | null;
+  };
+  user: { id: string; email: string | null };
+  /** `null` when the user is no longer a member of the key's organization. */
+  organization: {
+    id: string;
+    name: string;
+    plan: string;
+    api_enabled: boolean;
+    mcp_enabled: boolean;
+  } | null;
+  rate_limits: {
+    data_per_minute: number;
+    intelligence_per_minute: number;
+    mcp_per_minute: number;
+  };
+  quota: Quota;
+}
+
+/** Credits left this month. Without a monthly cap, `unlimited` is true and `remaining` null. */
+export interface Quota {
+  unlimited: boolean;
+  remaining: number | null;
+  resets_at: string | null;
+}
+
+export interface UsageParams {
+  /** First day, YYYY-MM-DD (UTC). Defaults to the first day of the current month. */
+  from?: string;
+  /** Last day, included, YYYY-MM-DD (UTC). Defaults to today. */
+  to?: string;
+}
+
+export interface UsageRow {
+  calls: number;
+  credits: number;
+  /** Calls that ended in a 4xx or 5xx status. */
+  errors: number;
+}
+
+/** `GET /v1/usage`: calls and credits between two dates. */
+export interface UsageResponse {
+  /** `organization`: every key of the organization; `key`: only this key. */
+  scope: "organization" | "key";
+  organization_id: string | null;
+  from: string;
+  to: string;
+  totals: UsageRow;
+  by_endpoint: Array<UsageRow & { endpoint: string }>;
+  by_day: Array<UsageRow & { date: string }>;
+  this_key: UsageRow;
+  quota: Quota;
+}

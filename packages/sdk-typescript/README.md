@@ -74,8 +74,30 @@ const client = new NormatiaClient({
 ## API Methods
 
 Every method calls an existing route of the API and resolves with its JSON
-body. Data methods (locations, codes, projects) are free and limited to 60
-requests per minute; `askV2` and `verify` consume 1 credit per call.
+body. Data methods (account, locations, codes, projects) are free and limited
+to 60 requests per minute; `askV2` and `verify` consume 1 credit per call.
+
+### getMe()
+
+The key, its organization, what it has turned on (API and MCP), its
+per-minute limits and the credits left this month. Call it first: if it
+answers, the key works.
+
+```ts
+const me = await client.getMe();
+console.log(me.organization?.name, me.organization?.api_enabled, me.quota.remaining);
+```
+
+### getUsage(params?)
+
+Calls and credits of the key's organization between two dates (UTC, both
+included), by endpoint and by day, with this key's share. Defaults to the
+current month; at most 92 days per call.
+
+```ts
+const usage = await client.getUsage({ from: "2026-11-01", to: "2026-11-30" });
+console.log(usage.totals.calls, usage.totals.credits);
+```
 
 ### searchLocations(params)
 
@@ -256,11 +278,15 @@ import type { AskV2Request, AskV2Response, ProjectInfoResponse, VerifyResponse }
 
 ## Error Handling
 
-The API sends its errors as `{"detail": {"error": "<code>", "message": "..."}}`.
-Every SDK error exposes:
+The `/api/v1` and `/api/v2` routes send their errors as
+`{"detail": {"error": "<code>", "message": "..."}}`; the `/v1` routes
+(`getMe`, `getUsage`) send RFC 9457 problems with `code` and `detail`. The SDK
+reads both. Every SDK error exposes:
 
 - `statusCode`: the HTTP status (0 for network failures)
-- `code`: the machine-readable code from `detail.error`, such as
+- `requestId`: the `X-Request-Id` of the response. Include it when you contact
+  support
+- `code`: the machine-readable code, such as
   `missing_api_key`, `api_not_enabled`, `not_found`, `project_not_found`,
   `no_active_project`, `geo_id_mismatch`, `rate_limit_exceeded` or
   `quota_exceeded`. Branch on this, not on the message.
@@ -269,6 +295,7 @@ Every SDK error exposes:
   status
 - `detail`: the raw `detail` value, with extra fields such as `remaining` and
   `reset_at` on `quota_exceeded`
+- `retryAfter` (only `RateLimitError`): seconds to wait, from `Retry-After`
 
 The SDK throws typed errors for common HTTP statuses:
 
@@ -289,8 +316,10 @@ try {
     console.error("Invalid API key");
   } else if (error instanceof RateLimitError && error.code === "quota_exceeded") {
     console.error("No credits left until", (error.detail as { reset_at?: string | null })?.reset_at);
+  } else if (error instanceof RateLimitError) {
+    console.error(`Too many requests, retry in ${error.retryAfter ?? 60} s`);
   } else if (error instanceof NormatiaError) {
-    console.error(`Normatia API error ${error.statusCode} (${error.code}): ${error.message}`);
+    console.error(`Normatia API error ${error.statusCode} (${error.code}, ${error.requestId}): ${error.message}`);
   } else {
     console.error("Unexpected error", error);
   }
