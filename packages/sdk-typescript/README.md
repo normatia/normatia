@@ -132,6 +132,18 @@ const coverage = await client.getCoverage("ES-41091");
 const missing = coverage.layers.filter((l) => l.status !== "complete").map((l) => l.code);
 ```
 
+### findPlaces(params) and getPlace(place)
+
+Municipalities with the id used across the API, and each municipality's
+technical data (climate zone, seismic, snow, wind, rainfall, radon, lightning),
+each with the regulation it comes from.
+
+```ts
+const { data } = await client.findPlaces({ q: "alcalá", level: "municipality" });
+const sevilla = await client.getPlace("ES-41091");
+console.log(sevilla.technical_data?.climate_zone); // { value: "B4", source: { citation: "CTE DB-HE, Anejo B", ... } }
+```
+
 ### listRegulations(params?), getRegulation(slug), getRegulationContents(slug), getRegulationSection(slug, section)
 
 Regulations as data: the catalog, each regulation's versions and related

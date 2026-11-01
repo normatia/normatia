@@ -594,3 +594,69 @@ export interface RegulationSection {
   }>;
 }
 
+export type PlaceLevel = "country" | "region" | "province" | "municipality";
+
+/** A municipality, province, region or Spain, with the id used across the API (`ES-41091`, `ES-41`, `ES-C01`). */
+export interface Place {
+  object: "place";
+  geo_id: string;
+  ine: string | null;
+  /** As the INE writes it: "Puerto de Santa María, El". */
+  name: string;
+  /** For display, article first: "El Puerto de Santa María". */
+  display_name: string;
+  level: PlaceLevel;
+  province: { geo_id: string; name: string } | null;
+  region: { geo_id: string; name: string } | null;
+}
+
+export interface PlaceSearchParams {
+  q: string;
+  level?: Exclude<PlaceLevel, "country">;
+  /** Only places inside this one (`ES-41`, `ES-C01`). */
+  within?: string;
+  limit?: number;
+}
+
+/** Where a technical datum comes from; `regulation` is its slug in `/v1/regulations`, if it is in the catalog. */
+export interface TechnicalSource {
+  citation: string;
+  regulation: string | null;
+}
+
+export interface PlaceTechnicalData {
+  climate_zone: { value: string | null; source: TechnicalSource };
+  design_temperatures: { winter_p99_c: number | null; summer_p1_c: number | null; source: TechnicalSource | null };
+  seismic: {
+    basic_acceleration_g: number | null;
+    contribution_coefficient_k: number | null;
+    /** Not in Annex 1 of NCSE-02: ab < 0.04g and the code is not mandatory. */
+    below_0_04g: boolean;
+    source: TechnicalSource;
+  };
+  snow: { ground_load_kn_m2: number | null; winter_climate_zone: number | null; source: TechnicalSource };
+  wind: { zone: string | null; source: TechnicalSource };
+  rainfall_hs1: { zone: string | null; source: TechnicalSource };
+  drainage_hs5: { zone: string | null; isohyet: number | null; intensity_mm_h: number | null; source: TechnicalSource };
+  thermal_zone_hs3: { zone: string | null; source: TechnicalSource };
+  /** `listed: false` means HS 6 does not apply there, not missing data. */
+  radon: { listed: boolean; zone: "I" | "II" | null; source: TechnicalSource };
+  lightning: { ground_flash_density: number | null; source: TechnicalSource };
+  solar_irradiation_kwh_m2_day: { monthly: number[] | null; source: TechnicalSource | null };
+  mains_water_temperature_c: { monthly: number[] | null; source: TechnicalSource | null };
+}
+
+/** `GET /v1/places/{place}`. `location` and `technical_data` only for municipalities. */
+export interface PlaceDetail extends Place {
+  location: {
+    latitude: number | null;
+    longitude: number | null;
+    altitude_m: number | null;
+    area_km2: number | null;
+    population: number | null;
+  } | null;
+  technical_data: PlaceTechnicalData | null;
+  regulations: { national: number; regional: number; municipal: number };
+  links: { regulations: string; coverage?: string };
+}
+

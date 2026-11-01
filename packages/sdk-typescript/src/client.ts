@@ -24,6 +24,9 @@ import type {
   ParcelsAtPoint,
   Coverage,
   Layer,
+  Place,
+  PlaceDetail,
+  PlaceSearchParams,
   RegulationContents,
   RegulationDetail,
   RegulationList,
@@ -269,6 +272,19 @@ export class NormatiaClient {
       method: "GET",
       query: { place: this.requireNonEmptyString(place, "place") },
     });
+  }
+
+  /** Municipalities, provinces and regions by name (accent-insensitive) or INE code. Free. */
+  async findPlaces(params: PlaceSearchParams): Promise<{ object: "list"; data: Place[]; has_more: boolean }> {
+    return this._request("/v1/places", {
+      method: "GET",
+      query: { q: this.requireNonEmptyString(params.q, "q"), level: params.level, within: params.within, limit: params.limit },
+    });
+  }
+
+  /** A place (`ES-41091` or `41091`); for a municipality, its location and technical data with their sources. Free. */
+  async getPlace(place: string): Promise<PlaceDetail> {
+    return this._request<PlaceDetail>(`/v1/places/${encodeURIComponent(this.requireNonEmptyString(place, "place"))}`);
   }
 
   /** The regulation catalog with each current version, filtered by text, scope, tag or place. Cursor-paginated. */
