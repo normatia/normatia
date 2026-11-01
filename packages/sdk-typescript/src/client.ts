@@ -275,7 +275,7 @@ export class NormatiaClient {
   async listRegulations(params: RegulationListParams = {}): Promise<RegulationList> {
     return this._request<RegulationList>("/v1/regulations", {
       method: "GET",
-      query: { q: params.q, scope: params.scope, tag: params.tag, place: params.place, limit: params.limit, cursor: params.cursor },
+      query: { q: params.q, scope: params.scope, tag: params.tag, place: params.place, curated: params.curated, limit: params.limit, cursor: params.cursor },
     });
   }
 

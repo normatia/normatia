@@ -522,6 +522,8 @@ export interface RegulationVersion {
   effective_date: string | null;
   /** Whether Normatia has its text (contents and sections). */
   has_text: boolean;
+  /** Text reviewed by hand. `false` with text: converted automatically and unreviewed; check it against `source_url`. */
+  curated: boolean;
   source_url: string | null;
 }
 
@@ -554,6 +556,8 @@ export interface RegulationListParams {
   tag?: string;
   /** `ES-` plus the INE code: regulations that apply there. */
   place?: string;
+  /** `true`: only regulations with hand-curated text. `false`: automatic text or no text. */
+  curated?: boolean;
   limit?: number;
   cursor?: string;
 }
