@@ -13,7 +13,7 @@ import random
 import time
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, Iterator, List, Optional, Sequence, Union
 
 import httpx
 
@@ -362,6 +362,103 @@ class AsyncNormatia(_Base):
         super().__init__(api_key, base_url, timeout, max_retries)
         self._http = http_client or httpx.AsyncClient()
         self._owns_http = http_client is None
+
+    if TYPE_CHECKING:
+        # The methods come from _Methods, which returns what _call returns: here a coroutine. These signatures
+        # tell type checkers so (await client.get_place(...) is a PlaceDetail); they do not exist at run time.
+        async def get_me(self) -> MeResponse:  # type: ignore[override]
+            ...
+
+        async def get_usage(  # type: ignore[override]
+            self,
+            *,
+            from_date: Optional[DateLike] = None,
+            to_date: Optional[DateLike] = None,
+        ) -> UsageResponse:
+            ...
+
+        async def list_keys(self) -> KeyList:  # type: ignore[override]
+            ...
+
+        async def revoke_key(self, key_id: str) -> None:  # type: ignore[override]
+            ...
+
+        async def get_parcel(self, ref: str, *, include: Sequence[str] = ()) -> Parcel:  # type: ignore[override]
+            ...
+
+        async def find_parcels_at_point(self, lat: float, lon: float) -> ParcelsAtPoint:  # type: ignore[override]
+            ...
+
+        async def get_sandbox(self) -> SandboxInfo:  # type: ignore[override]
+            ...
+
+        async def list_layers(self) -> LayerList:  # type: ignore[override]
+            ...
+
+        async def get_coverage(self, place: str) -> Coverage:  # type: ignore[override]
+            ...
+
+        async def find_places(  # type: ignore[override]
+            self,
+            q: str,
+            *,
+            level: Optional[str] = None,
+            within: Optional[str] = None,
+            limit: Optional[int] = None,
+        ) -> PlaceList:
+            ...
+
+        async def get_place(self, place: str) -> PlaceDetail:  # type: ignore[override]
+            ...
+
+        async def list_regulations(  # type: ignore[override]
+            self,
+            *,
+            q: Optional[str] = None,
+            scope: Optional[str] = None,
+            tag: Optional[str] = None,
+            place: Optional[str] = None,
+            curated: Optional[bool] = None,
+            limit: Optional[int] = None,
+            cursor: Optional[str] = None,
+        ) -> RegulationList:
+            ...
+
+        async def get_regulation(self, slug: str) -> RegulationDetail:  # type: ignore[override]
+            ...
+
+        async def get_regulation_contents(  # type: ignore[override]
+            self,
+            slug: str,
+            *,
+            version: Optional[str] = None,
+        ) -> RegulationContents:
+            ...
+
+        async def get_regulation_section(  # type: ignore[override]
+            self,
+            slug: str,
+            section: str,
+            *,
+            version: Optional[str] = None,
+            format: Optional[str] = None,
+        ) -> RegulationSection:
+            ...
+
+        async def ask(self, query: str, *, project_id: Optional[str] = None) -> AskV2Response:  # type: ignore[override]
+            ...
+
+        async def verify(  # type: ignore[override]
+            self,
+            *,
+            element: str,
+            parameter: str,
+            value: float,
+            unit: str,
+            geo_id: str,
+            codes: Optional[List[Dict[str, str]]] = None,
+        ) -> VerifyResponse:
+            ...
 
     async def _call(self, request: _Request) -> Any:  # type: ignore[override]
         attempt = 0

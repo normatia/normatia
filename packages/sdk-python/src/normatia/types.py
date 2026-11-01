@@ -50,7 +50,11 @@ class UsageRow(TypedDict):
     errors: int
 
 
-class UsageResponse(TypedDict):
+# ``from`` is a Python keyword: the two dates go in a functional TypedDict.
+_UsagePeriod = TypedDict("_UsagePeriod", {"from": str, "to": str})
+
+
+class UsageResponse(_UsagePeriod):
     scope: Literal["organization", "key"]
     organization_id: Optional[str]
     totals: UsageRow
@@ -67,18 +71,29 @@ class KeyList(TypedDict):
 # ── Parcels ─────────────────────────────────────────────────────────────
 
 
-class ConstraintLayer(TypedDict, total=False):
+class ConstraintLayer(TypedDict):
     layer: str
-    name: str
-    group: Optional[str]
-    status: Literal["affected", "not_affected", "context", "no_data"]
+    # True affected, False not affected, None no data: None never means "not affected".
+    affected: Optional[bool]
+    status: Literal["affected", "partially_affected", "context", "not_affected", "no_data"]
+    label: Optional[str]
+    summary: Optional[str]
     distance_m: Optional[float]
-    detail: Any
-    sources: List[Dict[str, Any]]
+    warnings: List[str]
+    # Why there is no data (``no_coverage``) or why it is doubtful.
+    reason: Optional[str]
+    source: Optional[str]
+
+
+class ConstraintsSummary(TypedDict):
+    affected: int
+    context: int
+    not_affected: int
+    no_data: int
 
 
 class Constraints(TypedDict):
-    summary: Dict[str, int]
+    summary: ConstraintsSummary
     layers: List[ConstraintLayer]
 
 

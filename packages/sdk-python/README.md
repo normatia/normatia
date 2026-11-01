@@ -14,8 +14,8 @@ client = Normatia()  # reads NORMATIA_API_KEY
 
 parcel = client.get_parcel("6963301TG3466N", include=["constraints", "zoning"])
 for layer in parcel["constraints"]["layers"]:
-    if layer["status"] == "affected":
-        print(layer["name"])
+    if layer["affected"]:  # None is "no data", never "not affected"
+        print(layer["layer"], layer["summary"])
 
 place = client.get_place("ES-41091")
 print(place["technical_data"]["climate_zone"])  # {'value': 'B4', 'source': {'citation': 'CTE DB-HE, Anejo B', ...}}
