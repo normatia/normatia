@@ -19,6 +19,8 @@ import type {
   LocationSearchParams,
   MeResponse,
   NormatiaConfig,
+  Parcel,
+  ParcelInclude,
   PaginatedResponse,
   ProjectInfoResponse,
   ProjectListResponse,
@@ -216,6 +218,21 @@ export class NormatiaClient {
     return this._request<UsageResponse>("/v1/usage", {
       method: "GET",
       query: { from: params.from, to: params.to },
+    });
+  }
+
+  /**
+   * A parcel by its cadastral reference (14 characters, or the 20 of a unit),
+   * from Normatia's territorial database. Ask for more blocks in the same call
+   * with `include`: constraints, zoning, buildings, geometry. A layer without
+   * data comes back with `affected: null`, never as "not affected". Free.
+   */
+  async getParcel(ref: string, options: { include?: ParcelInclude[] } = {}): Promise<Parcel> {
+    const normalizedRef = this.requireNonEmptyString(ref, "ref").replace(/\s+/g, "").toUpperCase();
+
+    return this._request<Parcel>(`/v1/parcels/${encodeURIComponent(normalizedRef)}`, {
+      method: "GET",
+      query: { include: options.include?.length ? options.include.join(",") : undefined },
     });
   }
 

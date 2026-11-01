@@ -100,6 +100,18 @@ const usage = await client.getUsage({ from: "2026-11-01", to: "2026-11-30" });
 console.log(usage.totals.calls, usage.totals.credits);
 ```
 
+### getParcel(ref, options?)
+
+A parcel by its cadastral reference, from Normatia's territorial database:
+place, cadastral class, area, centroid and addresses, and with `include`
+its constraints, zoning, buildings and geometry. A layer without data has
+`affected: null`, which never means "not affected".
+
+```ts
+const parcel = await client.getParcel("9872023VH5797S", { include: ["constraints", "zoning"] });
+const affected = parcel.constraints?.layers.filter((l) => l.affected === true);
+```
+
 ### searchLocations(params)
 
 Search countries, autonomous communities, provinces and municipalities by name

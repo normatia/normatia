@@ -383,3 +383,73 @@ export interface UsageResponse {
   this_key: UsageRow;
   quota: Quota;
 }
+
+export type ParcelInclude = "constraints" | "zoning" | "buildings" | "geometry";
+
+/** One constraint layer. `affected: null` means no data, never "not affected". */
+export interface ParcelConstraintLayer {
+  layer: string;
+  affected: boolean | null;
+  status: "affected" | "partially_affected" | "context" | "not_affected" | "no_data";
+  label?: string | null;
+  summary?: string | null;
+  distance_m?: number | null;
+  warnings?: string[];
+  reason?: string | null;
+  source?: string | null;
+}
+
+export interface ParcelPlanningSource {
+  source?: string | null;
+  date?: string | null;
+  instrument?: string | null;
+}
+
+export interface ParcelZone extends ParcelPlanningSource {
+  code: string;
+  name?: string | null;
+  percent: number;
+  global_use?: string | null;
+  typology?: string | null;
+  parameters: Record<string, { value?: number | null; unit?: string | null; text?: string | null }>;
+}
+
+/** `GET /v1/parcels/{ref}`. Blocks not requested in `include` are null. */
+export interface Parcel {
+  object: "parcel";
+  ref: string;
+  place: { geo_id: string; ine: string; name?: string | null };
+  cadastral_class: { code: "urban" | "rustic"; label: string } | null;
+  main_use: string | null;
+  area_m2: number | null;
+  centroid: { lat: number; lon: number } | null;
+  bbox: [number, number, number, number] | null;
+  addresses: Array<{ street: string; number?: string | null; postal_code?: string | null }>;
+  constraints: {
+    summary: { affected: number; context: number; not_affected: number; no_data: number };
+    layers: ParcelConstraintLayer[];
+  } | null;
+  zoning: {
+    land_class: (ParcelPlanningSource & { label: string }) | null;
+    zone: ParcelZone | null;
+    other_zones: Array<{ code: string; name?: string | null; percent: number }>;
+    areas: Array<{ code: string; name?: string | null; instrument?: string | null; percent: number }>;
+    zone_from_other_municipality: boolean;
+    contrast_land_class: (ParcelPlanningSource & { label: string }) | null;
+  } | null;
+  buildings: {
+    built: boolean;
+    condition?: string | null;
+    year_built?: number | null;
+    built_area_m2?: number | null;
+    dwellings?: number | null;
+    units?: number | null;
+    floors_above?: number | null;
+    floors_below?: number | null;
+    source: string;
+  } | null;
+  /** GeoJSON MultiPolygon in WGS84, with include=geometry. */
+  geometry: { type: string; coordinates: unknown } | null;
+  disclaimer: string;
+}
+
