@@ -331,6 +331,11 @@ export interface MeResponse {
     name: string | null;
     /** Last characters of the key, as shown in Mi cuenta > Claves API. */
     hint: string;
+    /**
+     * What the key may do: `data` (reads, free), `ask` (queries, use the organization's quota) and `mcp` (the MCP
+     * server). A route without its scope answers `403 insufficient_scope`.
+     */
+    scopes: Array<"data" | "ask" | "mcp">;
     created_at: string;
     last_used_at: string | null;
   };

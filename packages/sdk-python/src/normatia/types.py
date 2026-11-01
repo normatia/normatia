@@ -24,6 +24,8 @@ class KeyInfo(TypedDict):
     mode: Literal["live", "test"]
     name: Optional[str]
     hint: str
+    # What the key may do: "data" (reads, free), "ask" (queries, use quota), "mcp" (the MCP server).
+    scopes: List[Literal["data", "ask", "mcp"]]
     created_at: str
     last_used_at: Optional[str]
 
