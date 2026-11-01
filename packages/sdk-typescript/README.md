@@ -112,6 +112,15 @@ const parcel = await client.getParcel("9872023VH5797S", { include: ["constraints
 const affected = parcel.constraints?.layers.filter((l) => l.affected === true);
 ```
 
+### findParcelsAtPoint(lat, lon)
+
+The parcel containing a point, or those within 50 m with their distance.
+
+```ts
+const { data } = await client.findParcelsAtPoint(40.451247, -3.573312);
+const parcel = data[0] && (await client.getParcel(data[0].ref, { include: ["constraints"] }));
+```
+
 ### searchLocations(params)
 
 Search countries, autonomous communities, provinces and municipalities by name

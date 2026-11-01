@@ -384,7 +384,7 @@ export interface UsageResponse {
   quota: Quota;
 }
 
-export type ParcelInclude = "constraints" | "zoning" | "buildings" | "geometry";
+export type ParcelInclude = "constraints" | "zoning" | "buildings" | "units" | "geometry";
 
 /** One constraint layer. `affected: null` means no data, never "not affected". */
 export interface ParcelConstraintLayer {
@@ -448,8 +448,31 @@ export interface Parcel {
     floors_below?: number | null;
     source: string;
   } | null;
+  /** Cadastral units, with include=units. Never staircase, floor or door. */
+  units: {
+    total: number;
+    by_use: Record<string, number>;
+    data: Array<{
+      ref: string;
+      use?: string | null;
+      area_m2?: number | null;
+      year_built?: number | null;
+      address?: string | null;
+      postal_code?: string | null;
+    }>;
+    has_more: boolean;
+    source?: string | null;
+    date?: string | null;
+    note: string;
+  } | null;
   /** GeoJSON MultiPolygon in WGS84, with include=geometry. */
   geometry: { type: string; coordinates: unknown } | null;
   disclaimer: string;
 }
 
+/** `GET /v1/parcels?lat=&lon=`: the parcel containing the point, or those within 50 m. */
+export interface ParcelsAtPoint {
+  object: "list";
+  data: Array<{ ref: string; contains_point: boolean; distance_m: number | null }>;
+  has_more: boolean;
+}

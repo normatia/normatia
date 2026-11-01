@@ -21,6 +21,7 @@ import type {
   NormatiaConfig,
   Parcel,
   ParcelInclude,
+  ParcelsAtPoint,
   PaginatedResponse,
   ProjectInfoResponse,
   ProjectListResponse,
@@ -234,6 +235,20 @@ export class NormatiaClient {
       method: "GET",
       query: { include: options.include?.length ? options.include.join(",") : undefined },
     });
+  }
+
+  /**
+   * The parcel containing a point (WGS84 latitude and longitude) or, if it
+   * falls in none, those within 50 m, nearest first. An empty list means no
+   * parcel nearby (the sea, a large square) or a territory not in the base.
+   * Free.
+   */
+  async findParcelsAtPoint(lat: number, lon: number): Promise<ParcelsAtPoint> {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      throw new ValidationError("lat and lon must be finite numbers.", { lat, lon });
+    }
+
+    return this._request<ParcelsAtPoint>("/v1/parcels", { method: "GET", query: { lat, lon } });
   }
 
   private async _request<T>(
