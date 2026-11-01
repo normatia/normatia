@@ -17,6 +17,7 @@ import type {
   LocationDetail,
   LocationResult,
   LocationSearchParams,
+  KeyListItem,
   MeResponse,
   NormatiaConfig,
   Parcel,
@@ -233,6 +234,22 @@ export class NormatiaClient {
     });
   }
 
+  /** The user's keys in the key's organization, active and revoked. Free. */
+  async listKeys(): Promise<{ keys: KeyListItem[] }> {
+    return this._request<{ keys: KeyListItem[] }>("/v1/keys");
+  }
+
+  /**
+   * Revoke one of the user's keys, also the one making the call. It stops
+   * working in under a minute on every route and on the MCP server, and it
+   * cannot be undone. A test key or one with limited scopes can only revoke
+   * itself.
+   */
+  async revokeKey(keyId: string): Promise<void> {
+    const id = this.requireNonEmptyString(keyId, "keyId");
+    await this._request<void>(`/v1/keys/${encodeURIComponent(id)}`, { method: "DELETE", emptyBody: true });
+  }
+
   /**
    * A parcel by its cadastral reference (14 characters, or the 20 of a unit),
    * from Normatia's territorial database. Ask for more blocks in the same call
@@ -330,11 +347,13 @@ export class NormatiaClient {
   private async _request<T>(
     path: string,
     options: {
-      method?: "GET" | "POST";
+      method?: "GET" | "POST" | "DELETE";
       query?: QueryParams;
       body?: unknown;
       headers?: HeadersInit;
       timeoutMs?: number;
+      /** The route answers 204 with no body (DELETE /v1/keys/{id}). */
+      emptyBody?: boolean;
     } = {},
   ): Promise<T> {
     const url = new URL(path, `${this.baseUrl}/`);
@@ -390,6 +409,9 @@ export class NormatiaClient {
     }
 
     if (payload === undefined) {
+      if (options.emptyBody) {
+        return undefined as T;
+      }
       throw new NormatiaError("API returned an empty response body.", response.status);
     }
 

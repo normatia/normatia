@@ -356,6 +356,22 @@ export interface MeResponse {
   quota: Quota;
 }
 
+/** One of the user's keys in `GET /v1/keys`, active or revoked. */
+export interface KeyListItem {
+  id: string;
+  mode: "live" | "test";
+  name: string | null;
+  /** Last characters of the key. */
+  hint: string;
+  scopes: Array<"data" | "ask" | "mcp">;
+  status: "active" | "revoked";
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+  /** True for the key making this call. */
+  current: boolean;
+}
+
 /** Credits left this month. Without a monthly cap, `unlimited` is true and `remaining` null. */
 export interface Quota {
   unlimited: boolean;

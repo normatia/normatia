@@ -100,6 +100,19 @@ const usage = await client.getUsage({ from: "2026-11-01", to: "2026-11-30" });
 console.log(usage.totals.calls, usage.totals.credits);
 ```
 
+### listKeys() and revokeKey(keyId)
+
+The user's keys in the key's organization, active and revoked, with their
+scopes; `current` marks the one making the call. `revokeKey` cannot be
+undone: the key stops working in under a minute, also on the MCP server. A
+test key or one with limited scopes can only revoke itself.
+
+```ts
+const { keys } = await client.listKeys();
+const old = keys.find((k) => k.status === "active" && !k.current && k.last_used_at === null);
+if (old) await client.revokeKey(old.id);
+```
+
 ### getParcel(ref, options?)
 
 A parcel by its cadastral reference, from Normatia's territorial database:
@@ -328,6 +341,10 @@ the search always uses the versions in force.
 The SDK exports all request and response types, including:
 
 - `NormatiaConfig`
+- Account: `MeResponse`, `Quota`, `UsageParams`, `UsageResponse`, `UsageRow`, `KeyListItem`
+- Parcels: `Parcel`, `ParcelInclude`, `ParcelConstraintLayer`, `ParcelZone`, `ParcelsAtPoint`, `SandboxInfo`
+- Layers and places: `Layer`, `Coverage`, `PlaceSearchParams`, `Place`, `PlaceDetail`, `PlaceTechnicalData`, `TechnicalSource`
+- Regulations: `RegulationListParams`, `RegulationList`, `Regulation`, `RegulationDetail`, `RegulationVersion`, `RegulationContents`, `RegulationSection`
 - `LocationSearchParams`, `LocationResult`, `LocationDetail`
 - `CodeSearchParams`, `CodeResult`, `CodeDetail`, `DocumentVersion`
 - `AskV2Request`, `AskV2Response`, `AskV2Source`, `AskV2Project`
@@ -348,16 +365,17 @@ import type { AskV2Request, AskV2Response, ProjectInfoResponse, VerifyResponse }
 
 The `/api/v1` and `/api/v2` routes send their errors as
 `{"detail": {"error": "<code>", "message": "..."}}`; the `/v1` routes
-(`getMe`, `getUsage`) send RFC 9457 problems with `code` and `detail`. The SDK
-reads both. Every SDK error exposes:
+(account, parcels, layers, places and regulations) send RFC 9457 problems
+with `code` and `detail`. The SDK reads both. Every SDK error exposes:
 
 - `statusCode`: the HTTP status (0 for network failures)
 - `requestId`: the `X-Request-Id` of the response. Include it when you contact
   support
 - `code`: the machine-readable code, such as
-  `missing_api_key`, `api_not_enabled`, `not_found`, `project_not_found`,
-  `no_active_project`, `geo_id_mismatch`, `rate_limit_exceeded` or
-  `quota_exceeded`. Branch on this, not on the message.
+  `missing_api_key`, `api_not_enabled`, `insufficient_scope` (the key lacks
+  the scope of the route), `parcel_not_found`, `not_in_sandbox`,
+  `project_not_found`, `no_active_project`, `geo_id_mismatch`,
+  `rate_limit_exceeded` or `quota_exceeded`. Branch on this, not on the message.
 - `message`: `detail.message` when the API sends one (in English or Spanish);
   otherwise a summary built from the code, the validation errors or the HTTP
   status
