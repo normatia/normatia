@@ -52,7 +52,7 @@ Todas las herramientas aceptan un `project_id` opcional, que se resuelve como `p
 | Transporte | Streamable HTTP (`http` en la mayoría de los clientes) |
 | Autenticación | OAuth, o una clave de API en `Authorization: Bearer sk-normatia-...` |
 
-La API y el MCP son de los planes de pago: hace falta una organización con plan de pago. Con OAuth, el cliente te lleva a iniciar sesión en Normatia y obtiene el acceso por ti. Para los clientes sin OAuth, crea una clave en normatia.com, en [Mi cuenta](https://normatia.com/es/area-usuario/cuenta) (apartado «Claves API»).
+La API y el MCP se activan por organización, cada uno por su lado: escribe a hola@normatia.com para activarlos. Con OAuth, el cliente te lleva a iniciar sesión en Normatia y obtiene el acceso por ti. Para los clientes sin OAuth, crea una clave en normatia.com, en [Mi cuenta](https://normatia.com/es/area-usuario/cuenta) (apartado «Claves API»).
 
 #### Claude (claude.ai y Claude Desktop)
 

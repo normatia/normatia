@@ -29,7 +29,7 @@ export class AuthenticationError extends NormatiaError {
   }
 }
 
-/** 403: for example `plan_required`, when no organization of the user is on a paid plan. */
+/** 403: for example `api_not_enabled`, when the key's organization doesn't have API access turned on. */
 export class ForbiddenError extends NormatiaError {
   constructor(message = "Access forbidden for this API key.", detail?: unknown, code?: string) {
     super(message, 403, detail, code);

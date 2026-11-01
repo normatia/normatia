@@ -10,7 +10,7 @@ The Normatia MCP server is a remote server using **Streamable HTTP** transport: 
 | Transport  | Streamable HTTP (`http` in most client configs)               |
 | Auth       | OAuth, or an API key as `Authorization: Bearer sk-normatia-...` |
 
-API and MCP access require an organization on a paid plan. With OAuth, the client sends you to sign in to Normatia and gets access for you. To use a key instead, create one on normatia.com in [your account](https://normatia.com/es/area-usuario/cuenta) (section "Claves API"). Keys look like `sk-normatia-` followed by 64 hex characters.
+API and MCP access are turned on per organization, each on its own: write to hola@normatia.com to get them. With OAuth, the client sends you to sign in to Normatia and gets access for you. To use a key instead, create one on normatia.com in [your account](https://normatia.com/es/area-usuario/cuenta) (section "Claves API"). Keys look like `sk-normatia-` followed by 64 hex characters.
 
 ---
 

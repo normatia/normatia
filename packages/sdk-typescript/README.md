@@ -54,9 +54,10 @@ console.log(answer.answer);
 ## Authentication
 
 Create a key on normatia.com, in [your account](https://normatia.com/es/area-usuario/cuenta)
-(section "Claves API"). API access requires an organization on a paid plan; otherwise
-every call fails with `403 plan_required`. The key acts as the user who created it:
-it sees the same projects and spends the same credits.
+(section "Claves API"). API access is turned on per organization (write to
+hola@normatia.com); a key from an organization without it gets `403 api_not_enabled`.
+The key acts as the user who created it: it sees the same projects, and its usage
+counts against its organization.
 
 Pass your API key to the client constructor. The SDK sends:
 
@@ -260,7 +261,7 @@ Every SDK error exposes:
 
 - `statusCode`: the HTTP status (0 for network failures)
 - `code`: the machine-readable code from `detail.error`, such as
-  `missing_api_key`, `plan_required`, `not_found`, `project_not_found`,
+  `missing_api_key`, `api_not_enabled`, `not_found`, `project_not_found`,
   `no_active_project`, `geo_id_mismatch`, `rate_limit_exceeded` or
   `quota_exceeded`. Branch on this, not on the message.
 - `message`: `detail.message` when the API sends one (in English or Spanish);

@@ -52,7 +52,7 @@ Every tool takes an optional `project_id`, resolved as `explicit project_id → 
 | Transport | Streamable HTTP (`http` in most client configs) |
 | Auth | OAuth, or an API key as `Authorization: Bearer sk-normatia-...` |
 
-API and MCP access require an organization on a paid plan. With OAuth, the client sends you to sign in to Normatia and gets access for you. For clients without OAuth, create a key on normatia.com in [your account](https://normatia.com/es/area-usuario/cuenta) (section "Claves API").
+API and MCP access are turned on per organization, each on its own: write to hola@normatia.com to get them. With OAuth, the client sends you to sign in to Normatia and gets access for you. For clients without OAuth, create a key on normatia.com in [your account](https://normatia.com/es/area-usuario/cuenta) (section "Claves API").
 
 #### Claude (claude.ai and Claude Desktop)
 

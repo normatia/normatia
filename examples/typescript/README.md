@@ -12,7 +12,7 @@ These scripts demonstrate how to call the Normatia API from TypeScript using nat
 ## Prerequisites
 
 - Node.js 18+
-- A valid API key (created on normatia.com, in your account, with a paid plan)
+- A valid API key (created on normatia.com, in your account, with API access turned on for your organization)
 
 ## Environment variables
 
