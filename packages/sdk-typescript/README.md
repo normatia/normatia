@@ -121,6 +121,28 @@ const { data } = await client.findParcelsAtPoint(40.451247, -3.573312);
 const parcel = data[0] && (await client.getParcel(data[0].ref, { include: ["constraints"] }));
 ```
 
+### listLayers() and getCoverage(place)
+
+The constraint layers with their sources and licenses, and what is loaded for
+a municipality: a layer with `no_data` there means "unknown", never "not
+affected".
+
+```ts
+const coverage = await client.getCoverage("ES-41091");
+const missing = coverage.layers.filter((l) => l.status !== "complete").map((l) => l.code);
+```
+
+### listRegulations(params?), getRegulation(slug), getRegulationContents(slug), getRegulationSection(slug, section)
+
+Regulations as data: the catalog, each regulation's versions and related
+documents, the table of contents and the text of each section.
+
+```ts
+const { data } = await client.listRegulations({ q: "energía", scope: "national" });
+const contents = await client.getRegulationContents("cte-db-he");
+const section = await client.getRegulationSection("cte-db-he", contents.sections[1].slug);
+```
+
 ### searchLocations(params)
 
 Search countries, autonomous communities, provinces and municipalities by name

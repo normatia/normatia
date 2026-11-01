@@ -476,3 +476,117 @@ export interface ParcelsAtPoint {
   data: Array<{ ref: string; contains_point: boolean; distance_m: number | null }>;
   has_more: boolean;
 }
+
+/** `GET /v1/layers`: a constraint layer with its sources and licenses. */
+export interface Layer {
+  code: string;
+  name: string;
+  group: string | null;
+  mode: "intersects" | "distance" | "raster" | string;
+  distance_m: number | null;
+  informative: boolean;
+  declared_coverage: string | null;
+  provinces_without_data: string[];
+  sources: Array<{
+    dataset: string;
+    organization: string | null;
+    license: string | null;
+    attribution: string | null;
+    catalog_url: string | null;
+    verified_at: string | null;
+  }>;
+}
+
+export type CoverageStatus = "complete" | "partial" | "no_data";
+
+/** `GET /v1/coverage?place=`: what is loaded for a municipality. */
+export interface Coverage {
+  object: "coverage";
+  place: { geo_id: string; ine: string; name: string | null };
+  cadastre: { parcels: CoverageStatus; buildings: CoverageStatus; units: CoverageStatus; addresses: CoverageStatus };
+  planning: Array<{ dataset: string; organization: string | null; version: string | null; status: CoverageStatus }>;
+  layers: Array<{
+    code: string;
+    name: string;
+    status: CoverageStatus;
+    sources: Array<{ dataset: string; organization?: string | null; version: string | null; status: CoverageStatus }>;
+  }>;
+  summary: { complete: number; partial: number; no_data: number };
+}
+
+export interface RegulationVersion {
+  version: string;
+  title: string;
+  status: "active" | "repealed" | "draft" | "in_progress" | string | null;
+  published_date: string | null;
+  effective_date: string | null;
+  /** Whether Normatia has its text (contents and sections). */
+  has_text: boolean;
+  source_url: string | null;
+}
+
+export interface Regulation {
+  object: "regulation";
+  slug: string;
+  title: string;
+  short_title: string | null;
+  scope: "national" | "regional" | "municipal" | string | null;
+  tags: string[];
+  current_version: RegulationVersion | null;
+}
+
+export interface RegulationDetail extends Regulation {
+  description: string | null;
+  versions: RegulationVersion[];
+  related_documents: Array<{
+    slug: string;
+    title: string;
+    type: string;
+    status: string | null;
+    published_date: string | null;
+    source_url: string | null;
+  }>;
+}
+
+export interface RegulationListParams {
+  q?: string;
+  scope?: "national" | "regional" | "municipal";
+  tag?: string;
+  /** `ES-` plus the INE code: regulations that apply there. */
+  place?: string;
+  limit?: number;
+  cursor?: string;
+}
+
+export interface RegulationList {
+  object: "list";
+  data: Regulation[];
+  has_more: boolean;
+  next_cursor: string | null;
+}
+
+export interface RegulationContents {
+  object: "contents";
+  regulation: string;
+  version: RegulationVersion;
+  source_url: string | null;
+  sections: Array<{ slug: string; title: string | null; order: number }>;
+}
+
+export interface RegulationSection {
+  object: "section";
+  regulation: string;
+  version: RegulationVersion;
+  slug: string;
+  title: string | null;
+  blocks: Array<{
+    slug: string | null;
+    parent: string | null;
+    type: string;
+    level: number | null;
+    title: string | null;
+    text: string | null;
+    html: string | null;
+  }>;
+}
+

@@ -22,6 +22,13 @@ import type {
   Parcel,
   ParcelInclude,
   ParcelsAtPoint,
+  Coverage,
+  Layer,
+  RegulationContents,
+  RegulationDetail,
+  RegulationList,
+  RegulationListParams,
+  RegulationSection,
   PaginatedResponse,
   ProjectInfoResponse,
   ProjectListResponse,
@@ -249,6 +256,53 @@ export class NormatiaClient {
     }
 
     return this._request<ParcelsAtPoint>("/v1/parcels", { method: "GET", query: { lat, lon } });
+  }
+
+  /** Every constraint layer with its name, theme, mode and sources (license, attribution). Free. */
+  async listLayers(): Promise<{ object: "list"; data: Layer[]; has_more: boolean }> {
+    return this._request("/v1/layers");
+  }
+
+  /** What is loaded for a municipality (`ES-41091` or `41091`): cadastre, planning and each layer. Free. */
+  async getCoverage(place: string): Promise<Coverage> {
+    return this._request<Coverage>("/v1/coverage", {
+      method: "GET",
+      query: { place: this.requireNonEmptyString(place, "place") },
+    });
+  }
+
+  /** The regulation catalog with each current version, filtered by text, scope, tag or place. Cursor-paginated. */
+  async listRegulations(params: RegulationListParams = {}): Promise<RegulationList> {
+    return this._request<RegulationList>("/v1/regulations", {
+      method: "GET",
+      query: { q: params.q, scope: params.scope, tag: params.tag, place: params.place, limit: params.limit, cursor: params.cursor },
+    });
+  }
+
+  /** A regulation, its versions (with `has_text`) and its related documents (comments, guides). */
+  async getRegulation(slug: string): Promise<RegulationDetail> {
+    return this._request<RegulationDetail>(`/v1/regulations/${encodeURIComponent(this.requireNonEmptyString(slug, "slug"))}`);
+  }
+
+  /** The table of contents of a version (the current one if `version` is omitted). */
+  async getRegulationContents(slug: string, options: { version?: string } = {}): Promise<RegulationContents> {
+    return this._request<RegulationContents>(
+      `/v1/regulations/${encodeURIComponent(this.requireNonEmptyString(slug, "slug"))}/contents`,
+      { method: "GET", query: { version: options.version } },
+    );
+  }
+
+  /** The text of one section, block by block, with stable slugs. `format: "html"` adds the formatted text. */
+  async getRegulationSection(
+    slug: string,
+    section: string,
+    options: { version?: string; format?: "text" | "html" } = {},
+  ): Promise<RegulationSection> {
+    const base = `/v1/regulations/${encodeURIComponent(this.requireNonEmptyString(slug, "slug"))}`;
+    return this._request<RegulationSection>(
+      `${base}/sections/${encodeURIComponent(this.requireNonEmptyString(section, "section"))}`,
+      { method: "GET", query: { version: options.version, format: options.format } },
+    );
   }
 
   private async _request<T>(
