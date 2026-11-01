@@ -18,31 +18,32 @@ Normatia es una plataforma de cumplimiento normativo de la edificación para el 
 
 ## Servidor MCP
 
-Normatia proporciona un servidor MCP remoto que da a los asistentes de IA acceso a la normativa de edificación española **en el contexto de un proyecto concreto**, sin instalar nada.
+Normatia proporciona un servidor MCP remoto que da a los asistentes de IA la API de Normatia, sin instalar nada:
+las parcelas catastrales con sus afecciones y su planeamiento, los municipios con sus datos técnicos, el texto de la
+normativa de edificación española y un motor agéntico que la interpreta citando sus fuentes.
 
 ```
 https://mcp.normatia.com/mcp/
 ```
 
-### Todo gira alrededor de un proyecto
-
-El alcance normativo de Normatia **se define por proyecto**: cada proyecto en normatia.com tiene su municipio, sus normativas aplicables (estatales, autonómicas, municipales), sus documentos subidos, su memoria de datos de obra y sus cálculos guardados.
-
-Eso significa que el asistente nunca tiene que preguntar por la ciudad, la zona climática ni qué edición del CTE aplica: la respuesta llega con esos valores ya resueltos. Y un municipio sin proyecto no tiene respuesta: el asistente debe decirlo y sugerir crearlo, porque las ordenanzas municipales difieren por completo entre ayuntamientos.
-
 ### Herramientas disponibles
 
-Tres herramientas, todas de **solo lectura**. El servidor MCP no escribe nada en tus proyectos.
+Primero los datos: gratis, deterministas y con el mismo JSON que la API REST (`structuredContent` con su
+`outputSchema`).
 
 | Herramienta | Descripción | Coste |
 | --- | --- | --- |
-| `ask(query, project_id?)` | Consulta en lenguaje natural sobre la normativa que aplica a un proyecto. Es la única que devuelve texto normativo citable. | 1 crédito |
-| `get_project_info(project_id?)` | Contexto completo del proyecto: ubicación, datos técnicos del territorio, normativa aplicable con su versión vigente, archivos, documentos generados, memoria y cálculos. | Gratis |
-| `list_projects()` | Proyectos que el usuario puede consultar, con su `project_id`, ubicación y cuál es el activo. | Gratis |
+| `find_parcel`, `get_parcel` | Una parcela por un punto o por su referencia catastral, con afecciones, planeamiento, edificación, inmuebles y geometría | Gratis |
+| `get_place` | Un municipio con sus datos técnicos, cada uno con la norma de donde sale | Gratis |
+| `search_regulations`, `get_regulation_contents`, `read_regulation_section` | El catálogo normativo, el índice de una norma y el texto de cada sección | Gratis |
+| `ask` | Una pregunta interpretada por el motor, sobre un proyecto, un municipio (`place`) o una parcela (`parcel`) | 1 consulta |
+| `get_answer` | Recoge una consulta de `ask` que pasó de 45 segundos | Gratis |
+| `list_projects`, `get_project_info`, `get_usage` | Los proyectos del usuario y el consumo de la organización | Gratis |
 
-`ask` ejecuta **el mismo bucle agéntico que el chat de normatia.com**, no una búsqueda de un solo disparo: encadena varias búsquedas, lee la memoria y los cálculos guardados del proyecto, consulta los documentos subidos y cita cada fuente con marcadores `[N]` validados. Como la llamada es síncrona trabaja con presupuestos más cortos (6 rondas de razonamiento, 6 búsquedas, 120 segundos), así que configura el tiempo máximo de tu cliente en 150 segundos o más.
-
-Todas las herramientas aceptan un `project_id` opcional, que se resuelve como `project_id explícito → proyecto activo del usuario`. Para preguntar por otro municipio, llama a `list_projects()` y pasa el identificador que corresponda: se pueden consultar varios proyectos en la misma conversación, y el proyecto activo del usuario en la web no cambia por debajo.
+`ask` ejecuta **el mismo bucle agéntico que el chat de normatia.com** y cita cada fuente con marcadores `[N]`
+validados. Espera como mucho 45 segundos; si el motor no ha terminado, devuelve un `id` que recoge `get_answer`, así
+que ningún cliente corta por tiempo. Todas son de solo lectura salvo `ask`, que guarda su conversación. La guía
+completa: [docs.normatia.com/mcp](https://docs.normatia.com/mcp/).
 
 ### Configuración
 

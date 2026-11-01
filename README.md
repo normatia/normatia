@@ -18,31 +18,31 @@ Normatia is a building code compliance platform for Spain's AECO sector (archite
 
 ## MCP Server
 
-Normatia provides a remote MCP server that gives AI assistants access to Spanish building regulations **in the context of a specific project**, with no installation required.
+Normatia provides a remote MCP server that gives AI assistants the Normatia API, with no installation required:
+cadastral parcels with their constraints and zoning, municipalities with their technical data, the text of Spanish
+building regulations, and an agentic engine that interprets them with cited sources.
 
 ```
 https://mcp.normatia.com/mcp/
 ```
 
-### Everything is scoped to a project
-
-Normatia's regulatory scope is defined **per project**: every project on normatia.com carries its municipality, its applicable regulations (national, regional, municipal), its uploaded documents, the recorded facts about the building and any saved calculations.
-
-That means the assistant never has to ask for the city, the climate zone or which edition of the CTE applies: the answer arrives with those values already resolved. And a municipality with no project has no answer: the assistant is told to say so and point at creating one, because municipal ordinances differ completely between town councils.
-
 ### Available Tools
 
-Three tools, all **read-only**. Nothing in the MCP surface writes to your projects.
+Data first: free, deterministic, and the same JSON as the REST API (`structuredContent` with an `outputSchema`).
 
 | Tool | Description | Cost |
 | --- | --- | --- |
-| `ask(query, project_id?)` | Ask a natural-language question about the regulations that apply to a project. The only tool that returns citable regulatory text. | 1 credit |
-| `get_project_info(project_id?)` | Full project context: location, territory tech data, applicable regulations with their current edition, files, generated documents, memory and calculations. | Free |
-| `list_projects()` | Projects the user can query, with their `project_id`, location and which one is active. | Free |
+| `find_parcel`, `get_parcel` | A parcel at a point or by its cadastral reference, with constraints, zoning, buildings, units, geometry | Free |
+| `get_place` | A municipality with its technical data, each with the regulation it comes from | Free |
+| `search_regulations`, `get_regulation_contents`, `read_regulation_section` | The regulation catalog, a regulation's contents and the text of each section | Free |
+| `ask` | A question interpreted by the engine, about a project, a municipality (`place`) or a parcel (`parcel`) | 1 query |
+| `get_answer` | Collects an `ask` that took longer than 45 seconds | Free |
+| `list_projects`, `get_project_info`, `get_usage` | The user's projects and the organization's usage | Free |
 
-`ask` runs the **same agent loop as the chat on normatia.com**, not a single-shot search: it chains several searches, reads the project's memory and saved calculations, consults uploaded documents and cites every source with validated `[N]` markers. Because the call is synchronous it runs on shorter budgets (6 reasoning rounds, 6 searches, 120 seconds), so set your client's tool-call timeout to 150 seconds or more.
-
-Every tool takes an optional `project_id`, resolved as `explicit project_id → the user's active project`. To ask about another municipality, call `list_projects()` and pass the matching id: several projects can be queried in the same conversation, and the user's active project on the website never changes underneath them.
+`ask` runs the **same agent loop as the chat on normatia.com** and cites every source with validated `[N]` markers.
+It waits at most 45 seconds; if the engine has not finished it returns an `id` that `get_answer` collects, so no
+client times out. All tools are read-only except `ask`, which saves its conversation. Full guide:
+[docs.normatia.com/mcp](https://docs.normatia.com/mcp/) and [mcp/README.md](./mcp/README.md).
 
 ### Setup
 

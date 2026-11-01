@@ -100,43 +100,55 @@ Copy [`opencode.json`](./opencode.json) and replace `sk-normatia-YOUR_API_KEY`. 
 
 ## Available Tools
 
-The Normatia MCP server exposes 3 tools, all **read-only**: nothing in the MCP surface writes to your projects.
+Data first, interpretation second. The data tools are free and deterministic and return the same JSON as the REST
+API (in `structuredContent`, with an `outputSchema`) plus a text summary for the model. `ask` interprets the
+regulations with Normatia's agentic engine and spends one query.
 
-| Tool                            | Description                                                                                                                        | Cost     |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `ask(query, project_id?)`       | Ask a natural-language question about the regulations that apply to a project. The only tool that returns citable regulatory text.  | 1 credit |
-| `get_project_info(project_id?)` | Full project context: location, territory tech data, applicable regulations with their current edition, files, memory, calculations. | Free     |
-| `list_projects()`               | Projects the user can query, with their `project_id`, location and which one is active.                                            | Free     |
+| Tool | Description | Cost |
+| --- | --- | --- |
+| `find_parcel(lat, lon)` | The cadastral parcel at a point, or the nearest ones | Free |
+| `get_parcel(ref, include?)` | A parcel: municipality, class, area, addresses and, with `include`, constraints, zoning, buildings, units, geometry | Free |
+| `get_place(place)` | A municipality (name, INE code or `ES-…`) with its technical data, each with the regulation it comes from | Free |
+| `search_regulations(query?, place?, scope?, curated?)` | The regulation catalog, by title, scope or municipality | Free |
+| `get_regulation_contents(regulation, version?)` | A regulation's table of contents | Free |
+| `read_regulation_section(regulation, section, version?)` | The text of a section, article by article | Free |
+| `ask(query, project_id? \| place? \| parcel?)` | A question interpreted by the engine, with cited sources | 1 query |
+| `get_answer(answer_id)` | Collects an `ask` that was still running | Free |
+| `list_projects()` | The user's projects, with their `project_id` | Free |
+| `get_project_info(project_id?)` | A project's context: location, applicable regulations, files, memory, calculations | Free |
+| `get_usage(from_date?, to_date?)` | Calls and queries spent, and what is left this month | Free |
 
-The server accepts **60 requests per minute per key**. `ask` also counts against your plan's per-minute limit and credits, like `POST /api/v2/ask` on the REST API.
+All are read-only except `ask`, which saves its conversation. Errors come back as `isError` results with the API
+error code, the message and what to do next. The server accepts **60 requests per minute per key**; `ask` also
+counts against the plan's per-minute limit and monthly quota.
 
-### Everything is scoped to a project
+Two rules the server gives the assistant: a constraint layer with `no_data` is unknown, never "not affected"; and
+regulation text with `curated: false` was converted automatically and is unreviewed.
 
-Normatia's regulatory scope is defined **per project**: each project on normatia.com carries its municipality, its applicable regulations, its uploaded documents, the recorded facts about the building and any saved calculations.
+### `ask`: three scopes, 45 seconds
 
-So the assistant never has to ask for the city, the climate zone or which edition of the CTE applies: `ask` returns values already resolved for that project. And if the user asks about a municipality where they have no project, the assistant should say so and point at creating one, because municipal ordinances differ completely between town councils and there is no generic answer.
+`ask` runs the **same agent loop as the chat on normatia.com** and cites every source with validated `[N]` markers.
+It takes at most one scope:
 
-### `ask` is agentic
+- a project (`project_id`, or the active one by default): its regulations, uploaded documents, memory and calculations;
+- a municipality (`place`), without a project: the regulations that apply there, from national to municipal;
+- a parcel (`parcel`), without a project: its municipality's regulations plus its constraints and zoning.
 
-`ask` runs the **same agent loop as the chat on normatia.com**, not a single-shot search. The model decides what to look up, chains several searches, reads the project's memory and saved calculations, consults uploaded documents and cites every source with validated `[N]` markers.
-
-Because the call is synchronous it runs on shorter budgets than the web chat: up to **6 reasoning rounds, 6 searches and 120 seconds**. If your MCP client lets you configure the tool-call timeout, set it to **150 seconds or more**.
+It waits at most **45 seconds**, with a progress notification every 5. If the engine has not finished it returns
+`status: "running"` and an `id`, the query keeps running on the server, and `get_answer` collects it without
+spending another query.
 
 ### Working across projects
 
-Every tool takes an optional `project_id`, resolved as:
+To ask about a different project, call `list_projects()`, take the matching `project_id` and pass it to `ask`. There
+is no need to switch the active project on the website. If the user has no project in that municipality, use `place`
+or `parcel`, never another project's regulations.
 
-```
-explicit project_id  →  the user's active project
-```
+### OAuth tokens
 
-To ask about a different project or municipality, call `list_projects()`, take the matching `project_id` and pass it to `ask`. There is no need to switch the active project on the website: several projects can be queried in the same conversation, in parallel, and what the user sees on normatia.com never changes underneath them.
-
-### Typical Workflows
-
-**Active project**: just `ask("...")`. Call `get_project_info()` only when you need the location, the current editions or what is already saved.
-
-**Comparing municipalities**: `list_projects()`, then `ask("...", project_id=A)` and `ask("...", project_id=B)`, then contrast the answers.
+The access token a client gets through OAuth lasts **one hour** and is renewed with a refresh token that lasts 30
+days and rotates on every use; reusing a spent one closes the whole connection. Connected assistants are listed in
+Mi cuenta > Aplicaciones conectadas, where they can be disconnected.
 
 ---
 

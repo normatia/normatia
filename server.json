@@ -2,9 +2,9 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "com.normatia/mcp",
   "title": "Normatia",
-  "description": "Normativa de edificación española en el contexto de tus proyectos de Normatia, con fuentes citadas.",
+  "description": "Parcelas, municipios y normativa de edificación española como datos, y consultas con fuentes citadas.",
   "websiteUrl": "https://normatia.com",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "remotes": [
     {
       "type": "streamable-http",
