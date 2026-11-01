@@ -326,6 +326,8 @@ export interface VerifyResponse {
 export interface MeResponse {
   key: {
     id: string;
+    /** `test`: a sandbox key (`sk-normatia-test-`), which only answers with the sandbox. */
+    mode: "live" | "test";
     name: string | null;
     /** Last characters of the key, as shown in Mi cuenta > Claves API. */
     hint: string;
@@ -660,3 +662,15 @@ export interface PlaceDetail extends Place {
   links: { regulations: string; coverage?: string };
 }
 
+/** `GET /v1/sandbox`: the parcels a sandbox key answers with, and the case each one covers. */
+export interface SandboxInfo {
+  object: "sandbox";
+  recorded_at: string | null;
+  parcels: Array<{
+    ref: string;
+    place: { geo_id: string; ine: string; name: string | null };
+    case: string;
+    centroid: { lat: number; lon: number } | null;
+  }>;
+  docs_url: string;
+}

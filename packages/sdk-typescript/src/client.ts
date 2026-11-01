@@ -27,6 +27,7 @@ import type {
   Place,
   PlaceDetail,
   PlaceSearchParams,
+  SandboxInfo,
   RegulationContents,
   RegulationDetail,
   RegulationList,
@@ -272,6 +273,11 @@ export class NormatiaClient {
       method: "GET",
       query: { place: this.requireNonEmptyString(place, "place") },
     });
+  }
+
+  /** The sandbox parcels (what a `sk-normatia-test-` key answers with), with the case each one covers. */
+  async getSandbox(): Promise<SandboxInfo> {
+    return this._request<SandboxInfo>("/v1/sandbox");
   }
 
   /** Municipalities, provinces and regions by name (accent-insensitive) or INE code. Free. */

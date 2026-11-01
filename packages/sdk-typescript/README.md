@@ -132,6 +132,18 @@ const coverage = await client.getCoverage("ES-41091");
 const missing = coverage.layers.filter((l) => l.status !== "complete").map((l) => l.code);
 ```
 
+### Sandbox keys
+
+A sandbox key (`sk-normatia-test-...`, from Mi cuenta > Claves API > Clave de
+prueba) works with the same client: it answers with about fifty fixed parcels
+and the public catalog, without quota. `getSandbox()` lists the parcels.
+
+```ts
+const client = new NormatiaClient({ apiKey: process.env.NORMATIA_TEST_KEY! });
+const { parcels } = await client.getSandbox();
+const parcel = await client.getParcel(parcels[0].ref, { include: ["constraints"] });
+```
+
 ### findPlaces(params) and getPlace(place)
 
 Municipalities with the id used across the API, and each municipality's
