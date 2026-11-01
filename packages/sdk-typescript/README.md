@@ -56,7 +56,8 @@ console.log(answer.answer);
 Create a key on normatia.com, in [your account](https://normatia.com/es/area-usuario/cuenta)
 (section "Claves API"). API access is turned on per organization (write to
 hola@normatia.com); a key from an organization without it gets `403 api_not_enabled`.
-The key acts as the user who created it: it sees the same projects, and its usage
+The key acts as the user who created it, within its organization: it sees that
+organization's projects only, and its usage
 counts against its organization.
 
 Pass your API key to the client constructor. The SDK sends:
