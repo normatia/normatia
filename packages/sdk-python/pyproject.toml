@@ -29,7 +29,8 @@ dev = ["pytest>=8", "pytest-asyncio>=0.23"]
 [project.urls]
 Homepage = "https://normatia.com"
 Documentation = "https://docs.normatia.com"
-Repository = "https://github.com/SiloCreativo/normatia-devtools"
+Repository = "https://github.com/normatia/normatia"
+Issues = "https://github.com/normatia/normatia/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/normatia"]

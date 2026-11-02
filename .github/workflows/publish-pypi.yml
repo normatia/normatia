@@ -1,0 +1,52 @@
+name: Publish Python SDK
+
+# A tag sdk-py-v<version> (the version of packages/sdk-python/pyproject.toml) publishes that version on PyPI.
+# Trusted publishing (OIDC): PyPI trusts this workflow and the `pypi` environment, without a token.
+on:
+  push:
+    tags: ["sdk-py-v*"]
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/sdk-python
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: The tag matches the version
+        run: |
+          version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          if [ "$GITHUB_REF_NAME" != "sdk-py-v$version" ]; then
+            echo "The tag $GITHUB_REF_NAME does not match the version $version of pyproject.toml"
+            exit 1
+          fi
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: packages/sdk-python/dist/
+
+  publish:
+    name: Publish on PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/normatia/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
