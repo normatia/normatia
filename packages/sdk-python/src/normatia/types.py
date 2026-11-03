@@ -36,11 +36,20 @@ class Quota(TypedDict):
     resets_at: Optional[str]
 
 
+class RateLimits(TypedDict):
+    data_per_minute: int
+    intelligence_per_minute: int
+    mcp_per_minute: int
+    # Data and MCP of the whole organization, adding up all its keys, on top of the key's own limits. A 429 caused by
+    # it has ``"group": "organization"`` in the body.
+    organization_per_minute: int
+
+
 class MeResponse(TypedDict):
     key: KeyInfo
     user: Dict[str, Optional[str]]
     organization: Optional[Dict[str, Any]]
-    rate_limits: Dict[str, int]
+    rate_limits: RateLimits
     quota: Quota
 
 
@@ -124,6 +133,73 @@ class ParcelAtPoint(TypedDict):
 class ParcelsAtPoint(TypedDict):
     object: Literal["list"]
     data: List[ParcelAtPoint]
+    has_more: bool
+
+
+class AddressMatch(TypedDict):
+    # Whether the candidate matches what was written. None: that part was not written.
+    municipality: Optional[bool]
+    number: Optional[bool]
+
+
+class ParcelAtAddress(TypedDict):
+    # The cadastral reference of the parcel, 14 characters.
+    ref: str
+    # The address found: "Calle Mayor 5, Madrid".
+    address: Optional[str]
+    place: Optional[Dict[str, Optional[str]]]
+    # The point of the entrance (portal), {"lat": ..., "lon": ...}.
+    location: Optional[Dict[str, float]]
+    # "confirmed": the reference is the entrance's; "unconfirmed": an approximation worth checking.
+    confidence: Literal["confirmed", "unconfirmed"]
+    match: AddressMatch
+
+
+class AddressInterpretation(TypedDict):
+    street: Optional[str]
+    number: Optional[str]
+    municipality: Optional[str]
+    province: Optional[str]
+
+
+# Why an address search is not exact: "not_understood" (it could not be read as an address) is not "no_candidates" (it
+# was understood and does not exist).
+AddressSearchReason = Literal[
+    "municipality_mismatch", "number_mismatch", "foral_territory", "no_reference", "no_candidates", "ambiguous",
+    "not_understood",
+]
+
+
+class ParcelsAtAddress(TypedDict):
+    object: Literal["list"]
+    data: List[ParcelAtAddress]
+    has_more: bool
+    # True: the address leads to one parcel without doubt. False: pick one in ``data`` or rephrase it.
+    exact: bool
+    interpreted: Optional[AddressInterpretation]
+    # None when ``exact`` is true.
+    reason: Optional[AddressSearchReason]
+    # Other ways to write the address, when it was not understood.
+    suggestions: List[str]
+
+
+class AddressSuggestion(TypedDict):
+    # "street": a street without number (keep typing). "address": an entrance, with its parcel in ``ref``.
+    type: Literal["street", "address"]
+    # What to show: "Calle Habana, Sudamérica (El Puerto de Santa María)".
+    text: str
+    place: Optional[Dict[str, Optional[str]]]
+    # The province name.
+    province: Optional[str]
+    postal_code: Optional[str]
+    # Only with type "address": the cadastral reference of the entrance's parcel, 14 characters.
+    ref: Optional[str]
+    location: Optional[Dict[str, float]]
+
+
+class AddressSuggestions(TypedDict):
+    object: Literal["list"]
+    data: List[AddressSuggestion]
     has_more: bool
 
 

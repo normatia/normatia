@@ -19,12 +19,14 @@ import httpx
 
 from .errors import NormatiaError, ValidationError, error_from_response
 from .types import (
+    AddressSuggestions,
     AskV2Response,
     Coverage,
     KeyList,
     LayerList,
     MeResponse,
     Parcel,
+    ParcelsAtAddress,
     ParcelsAtPoint,
     PlaceDetail,
     PlaceList,
@@ -38,7 +40,7 @@ from .types import (
     VerifyResponse,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 DEFAULT_BASE_URL = "https://api.normatia.com"
 DEFAULT_TIMEOUT_S = 30.0
@@ -129,6 +131,23 @@ class _Methods:
     def find_parcels_at_point(self, lat: float, lon: float) -> ParcelsAtPoint:
         """The parcel that contains a WGS84 point or, if none does, the nearest ones."""
         return self._call(_Request("GET", "/v1/parcels", {"lat": lat, "lon": lon}))
+
+    def find_parcels_by_address(self, address: str, *, province: Optional[str] = None) -> ParcelsAtAddress:
+        """The parcels of a written address ("Calle Mayor 5, Madrid"), with what was understood of it.
+
+        ``exact`` tells whether it leads to one parcel without doubt; if not, ``reason`` says why and ``data`` holds
+        the candidates. Without the municipality in the text it is never exact. ``province`` (``ES-28`` or its name)
+        narrows the search when the text does not say it; an unknown province is a 422 ``invalid_place``.
+        """
+        params = {"address": _required(address, "address"), "province": (province or "").strip() or None}
+        return self._call(_Request("GET", "/v1/parcels", params))
+
+    def suggest_addresses(self, q: str, *, limit: Optional[int] = None) -> AddressSuggestions:
+        """Address autocomplete: the streets that start like ``q`` and, with a number, the entrances and their parcel.
+
+        ``q`` has 3 characters or more; ``limit`` goes from 1 to 10 (6 by default).
+        """
+        return self._call(_Request("GET", "/v1/addresses", {"q": _required(q, "q"), "limit": limit}))
 
     def get_sandbox(self) -> SandboxInfo:
         """The parcels a sandbox key (``sk-normatia-test-``) answers with, and the case each one covers."""
@@ -387,6 +406,22 @@ class AsyncNormatia(_Base):
             ...
 
         async def find_parcels_at_point(self, lat: float, lon: float) -> ParcelsAtPoint:  # type: ignore[override]
+            ...
+
+        async def find_parcels_by_address(  # type: ignore[override]
+            self,
+            address: str,
+            *,
+            province: Optional[str] = None,
+        ) -> ParcelsAtAddress:
+            ...
+
+        async def suggest_addresses(  # type: ignore[override]
+            self,
+            q: str,
+            *,
+            limit: Optional[int] = None,
+        ) -> AddressSuggestions:
             ...
 
         async def get_sandbox(self) -> SandboxInfo:  # type: ignore[override]

@@ -33,6 +33,26 @@ async with AsyncNormatia() as client:
     me = await client.get_me()
 ```
 
+## Addresses
+
+`find_parcels_by_address` gives the parcels of a written address, from the entrances of the Cadastre and CartoCiudad,
+with what was understood (`interpreted`). `exact` is true when the address leads to one parcel without doubt; otherwise
+`reason` says why (`ambiguous`, `no_candidates`, `not_understood`...) and `data` holds the candidates, each with its
+`confidence` and `match`. Without the municipality it is never exact: write it, or pass `province=` (`ES-28` or its
+name). `suggest_addresses` is the autocomplete while the user types (3 characters or more): streets and, once the text
+has a number, entrances with the reference of their parcel.
+
+```python
+found = client.find_parcels_by_address("Calle Mayor 5, Madrid")
+if found["exact"]:
+    parcel = client.get_parcel(found["data"][0]["ref"], include=["zoning"])
+else:
+    print(found["reason"], [c["address"] for c in found["data"]], found["suggestions"])
+
+for suggestion in client.suggest_addresses("Hermosilla 4", limit=5)["data"]:
+    print(suggestion["type"], suggestion["text"], suggestion["ref"])  # "address" ones carry the parcel's ref
+```
+
 ## Sandbox keys
 
 A sandbox key (`sk-normatia-test-...`, from Mi cuenta > Claves API > Clave de prueba) works with the same client and
@@ -57,12 +77,17 @@ except NotFoundError as e:
 GET requests are retried twice on 429 `rate_limit_exceeded`, 502, 503, 504 and network errors, waiting `Retry-After`
 when the API sends it (`max_retries=` to change it). `ask` and `verify` spend a credit and are never retried.
 
+Besides the limits of each key, the data routes and the MCP server have one for the whole organization, adding up all
+its keys (`get_me()["rate_limits"]["organization_per_minute"]`). On a 429 `rate_limit_exceeded`, `RateLimitError.group`
+says which one was hit: the key's (`data`, `intelligence`, `mcp`) or `organization`.
+
 ## Methods
 
 | Method | Route |
 |---|---|
 | `get_me()`, `get_usage(from_date=, to_date=)`, `list_keys()`, `revoke_key(id)` | `/v1/me`, `/v1/usage`, `/v1/keys` |
 | `get_parcel(ref, include=[...])`, `find_parcels_at_point(lat, lon)`, `get_sandbox()` | `/v1/parcels`, `/v1/sandbox` |
+| `find_parcels_by_address(address, province=)`, `suggest_addresses(q, limit=)` | `/v1/parcels?address=`, `/v1/addresses` |
 | `list_layers()`, `get_coverage(place)` | `/v1/layers`, `/v1/coverage` |
 | `find_places(q, level=, within=)`, `get_place(place)` | `/v1/places` |
 | `list_regulations(...)`, `iter_regulations(...)`, `get_regulation(slug)`, `get_regulation_contents(slug)`, `get_regulation_section(slug, section)` | `/v1/regulations` |

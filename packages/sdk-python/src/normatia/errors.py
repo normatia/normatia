@@ -58,6 +58,18 @@ class ValidationError(NormatiaError):
 class RateLimitError(NormatiaError):
     """429: ``rate_limit_exceeded`` (per minute) or ``quota_exceeded`` (the month's credits are used up)."""
 
+    @property
+    def group(self) -> Optional[str]:
+        """Which per-minute limit was hit on ``rate_limit_exceeded``: the key's (``data``, ``intelligence``, ``mcp``)
+        or ``organization``, the one shared by all the keys of the organization. None on ``quota_exceeded``.
+
+        At the root of the body on ``/v1``, inside ``detail`` on the ``/api`` routes.
+        """
+        root = self.body if isinstance(self.body, dict) else {}
+        detail = root.get("detail")
+        value = (detail.get("group") if isinstance(detail, dict) else None) or root.get("group")
+        return value if isinstance(value, str) else None
+
 
 class ServiceUnavailableError(NormatiaError):
     """503: the territorial database did not answer in time. Retry after ``retry_after`` seconds."""
