@@ -55,6 +55,12 @@ export class NotFoundError extends NormatiaError {
 export class RateLimitError extends NormatiaError {
   /** Seconds to wait before retrying, from the `Retry-After` header. */
   public readonly retryAfter?: number;
+  /**
+   * Which per-minute limit was hit on `rate_limit_exceeded`: the key's own (`data`, `intelligence`, `mcp`) or
+   * `organization`, the one shared by every key of the organization (`rate_limits.organization_per_minute` in
+   * `getMe`). Undefined on `quota_exceeded`.
+   */
+  public readonly group?: "data" | "intelligence" | "mcp" | "organization" | string;
 
   constructor(
     message = "Rate limit exceeded. Please retry later.",
@@ -62,9 +68,11 @@ export class RateLimitError extends NormatiaError {
     code?: string,
     requestId?: string,
     retryAfter?: number,
+    group?: string,
   ) {
     super(message, 429, detail, code, requestId);
     this.retryAfter = retryAfter;
+    this.group = group;
   }
 }
 

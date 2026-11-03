@@ -76,7 +76,9 @@ const client = new NormatiaClient({
 
 Every method calls an existing route of the API and resolves with its JSON
 body. Data methods (account, locations, codes, projects) are free and limited
-to 60 requests per minute; `askV2` and `verify` consume 1 credit per call.
+to 60 requests per minute per key, and to 300 per minute for the whole
+organization, adding up all its keys (`rate_limits.organization_per_minute` in
+`getMe`); `askV2` and `verify` consume 1 credit per call.
 
 ### getMe()
 
@@ -132,6 +134,42 @@ The parcel containing a point, or those within 50 m with their distance.
 ```ts
 const { data } = await client.findParcelsAtPoint(40.451247, -3.573312);
 const parcel = data[0] && (await client.getParcel(data[0].ref, { include: ["constraints"] }));
+```
+
+### findParcelsByAddress(address, options?)
+
+The parcels of a written address, from the entrances of the Cadastre and
+CartoCiudad, with what was understood (`interpreted`). `exact` is true when the
+address leads to one parcel without doubt; otherwise `reason` says why
+(`ambiguous`, `no_candidates`, `not_understood`...) and `data` holds the
+candidates, each with its `confidence` and `match`. Without the municipality
+the search is never exact: write it in the address, or pass `province`
+(`ES-28` or its name). It also takes rustic parcels: "Polígono 3 Parcela 12,
+Arahal".
+
+```ts
+const result = await client.findParcelsByAddress("Calle Mayor 5, Madrid");
+if (result.exact) {
+  const parcel = await client.getParcel(result.data[0].ref, { include: ["zoning"] });
+} else {
+  console.log(result.reason, result.data.map((c) => c.address), result.suggestions);
+}
+```
+
+If the territorial database does not answer, it throws a `NormatiaError` with
+`statusCode` 503 and code `parcel_data_unavailable`: retry in a few seconds.
+
+### suggestAddresses(q, options?)
+
+Autocomplete while the user types (3 characters or more): streets
+(`type: "street"`) and, once the text has a number, entrances with the
+reference of their parcel (`type: "address"`, `ref`). Up to `limit`
+suggestions, from 1 to 10 (6 by default).
+
+```ts
+const { data } = await client.suggestAddresses("Hermosilla 4", { limit: 5 });
+const entrance = data.find((s) => s.type === "address");
+const parcel = entrance?.ref && (await client.getParcel(entrance.ref));
 ```
 
 ### listLayers() and getCoverage(place)
@@ -343,6 +381,7 @@ The SDK exports all request and response types, including:
 - `NormatiaConfig`
 - Account: `MeResponse`, `Quota`, `UsageParams`, `UsageResponse`, `UsageRow`, `KeyListItem`
 - Parcels: `Parcel`, `ParcelInclude`, `ParcelConstraintLayer`, `ParcelZone`, `ParcelsAtPoint`, `SandboxInfo`
+- Addresses: `ParcelsAtAddress`, `ParcelAtAddress`, `AddressMatch`, `AddressInterpretation`, `AddressSearchReason`, `AddressSuggestions`, `AddressSuggestion`
 - Layers and places: `Layer`, `Coverage`, `PlaceSearchParams`, `Place`, `PlaceDetail`, `PlaceTechnicalData`, `TechnicalSource`
 - Regulations: `RegulationListParams`, `RegulationList`, `Regulation`, `RegulationDetail`, `RegulationVersion`, `RegulationContents`, `RegulationSection`
 - `LocationSearchParams`, `LocationResult`, `LocationDetail`
@@ -382,6 +421,9 @@ with `code` and `detail`. The SDK reads both. Every SDK error exposes:
 - `detail`: the raw `detail` value, with extra fields such as `remaining` and
   `reset_at` on `quota_exceeded`
 - `retryAfter` (only `RateLimitError`): seconds to wait, from `Retry-After`
+- `group` (only `RateLimitError`, on `rate_limit_exceeded`): which per-minute
+  limit was hit, the key's (`data`, `intelligence`, `mcp`) or `organization`,
+  the one shared by all the keys of the organization
 
 The SDK throws typed errors for common HTTP statuses:
 
@@ -403,7 +445,7 @@ try {
   } else if (error instanceof RateLimitError && error.code === "quota_exceeded") {
     console.error("No credits left until", (error.detail as { reset_at?: string | null })?.reset_at);
   } else if (error instanceof RateLimitError) {
-    console.error(`Too many requests, retry in ${error.retryAfter ?? 60} s`);
+    console.error(`Too many requests (${error.group} limit), retry in ${error.retryAfter ?? 60} s`);
   } else if (error instanceof NormatiaError) {
     console.error(`Normatia API error ${error.statusCode} (${error.code}, ${error.requestId}): ${error.message}`);
   } else {

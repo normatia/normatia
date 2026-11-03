@@ -352,6 +352,11 @@ export interface MeResponse {
     data_per_minute: number;
     intelligence_per_minute: number;
     mcp_per_minute: number;
+    /**
+     * Data and MCP requests of the whole organization, adding up all its keys. It applies on top of the key's own
+     * limits; a 429 caused by it has `group: "organization"` (`RateLimitError.group`).
+     */
+    organization_per_minute: number;
   };
   quota: Quota;
 }
@@ -497,6 +502,84 @@ export interface Parcel {
 export interface ParcelsAtPoint {
   object: "list";
   data: Array<{ ref: string; contains_point: boolean; distance_m: number | null }>;
+  has_more: boolean;
+}
+
+/** Whether a candidate matches what was written. `null`: that part was not written. */
+export interface AddressMatch {
+  municipality: boolean | null;
+  number: boolean | null;
+}
+
+/** A parcel found from an address: the parcel of one of its entrances (portales). */
+export interface ParcelAtAddress {
+  /** Cadastral reference of the parcel, 14 characters. */
+  ref: string;
+  /** The address found: "Calle Mayor 5, Madrid". */
+  address: string | null;
+  place: { geo_id: string; ine: string; name: string | null } | null;
+  /** The point of the entrance. */
+  location: { lat: number; lon: number } | null;
+  /** `confirmed`: the reference is the entrance's; `unconfirmed`: an approximation worth checking. */
+  confidence: "confirmed" | "unconfirmed";
+  match: AddressMatch;
+}
+
+/** What was understood from the written address. */
+export interface AddressInterpretation {
+  street: string | null;
+  number: string | null;
+  municipality: string | null;
+  province: string | null;
+}
+
+/**
+ * Why an address search is not exact: `not_understood` (the text could not be read as an address) is not the same as
+ * `no_candidates` (it was understood and does not exist).
+ */
+export type AddressSearchReason =
+  | "municipality_mismatch"
+  | "number_mismatch"
+  | "foral_territory"
+  | "no_reference"
+  | "no_candidates"
+  | "ambiguous"
+  | "not_understood";
+
+/** `GET /v1/parcels?address=`: the parcels of an address, with what was understood and, if not exact, why. */
+export interface ParcelsAtAddress {
+  object: "list";
+  data: ParcelAtAddress[];
+  has_more: boolean;
+  /** `true`: the address leads to one parcel without doubt. `false`: pick one in `data` or rephrase it. */
+  exact: boolean;
+  interpreted: AddressInterpretation | null;
+  /** `null` when `exact` is true. */
+  reason: AddressSearchReason | null;
+  /** Other ways to write the address, when it was not understood. */
+  suggestions: string[];
+}
+
+/** One suggestion of `GET /v1/addresses`. */
+export interface AddressSuggestion {
+  /** `street`: a street without number (keep typing). `address`: an entrance, with its parcel in `ref`. */
+  type: "street" | "address";
+  /** What to show: "Calle Habana, Sudamérica (El Puerto de Santa María)". */
+  text: string;
+  place: { geo_id: string; ine: string; name: string | null } | null;
+  /** Province name. */
+  province: string | null;
+  postal_code: string | null;
+  /** Only with `type: "address"`: cadastral reference of the entrance's parcel, 14 characters. */
+  ref: string | null;
+  /** The point of the street or of the entrance. */
+  location: { lat: number; lon: number } | null;
+}
+
+/** `GET /v1/addresses?q=`: address autocomplete. */
+export interface AddressSuggestions {
+  object: "list";
+  data: AddressSuggestion[];
   has_more: boolean;
 }
 

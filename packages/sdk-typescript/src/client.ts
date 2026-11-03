@@ -7,6 +7,7 @@ import {
   ValidationError,
 } from "./errors";
 import type {
+  AddressSuggestions,
   AskRequest,
   AskResponse,
   AskV2Request,
@@ -22,6 +23,7 @@ import type {
   NormatiaConfig,
   Parcel,
   ParcelInclude,
+  ParcelsAtAddress,
   ParcelsAtPoint,
   Coverage,
   Layer,
@@ -279,6 +281,35 @@ export class NormatiaClient {
     return this._request<ParcelsAtPoint>("/v1/parcels", { method: "GET", query: { lat, lon } });
   }
 
+  /**
+   * The parcels of a written address ("Calle Mayor 5, Madrid", or "Polígono 3 Parcela 12, Arahal" for a rustic
+   * parcel), from the entrances of the Cadastre and CartoCiudad. `exact` tells whether it leads to one parcel without
+   * doubt; if not, `reason` says why and `data` holds the candidates. Without the municipality in the text it is
+   * never exact. `province` (`ES-28` or its name) narrows the search when the text does not say it; an unknown
+   * province answers `422 invalid_place`. Free.
+   */
+  async findParcelsByAddress(address: string, options: { province?: string } = {}): Promise<ParcelsAtAddress> {
+    return this._request<ParcelsAtAddress>("/v1/parcels", {
+      method: "GET",
+      query: {
+        address: this.requireNonEmptyString(address, "address"),
+        province: options.province?.trim() || undefined,
+      },
+    });
+  }
+
+  /**
+   * Address autocomplete, while the user types (3 characters or more): the streets that start that way and, once the
+   * text has a number, the entrances with the reference of their parcel. `limit` goes from 1 to 10 (6 by default).
+   * Free.
+   */
+  async suggestAddresses(q: string, options: { limit?: number } = {}): Promise<AddressSuggestions> {
+    return this._request<AddressSuggestions>("/v1/addresses", {
+      method: "GET",
+      query: { q: this.requireNonEmptyString(q, "q"), limit: options.limit },
+    });
+  }
+
   /** Every constraint layer with its name, theme, mode and sources (license, attribution). Free. */
   async listLayers(): Promise<{ object: "list"; data: Layer[]; has_more: boolean }> {
     return this._request("/v1/layers");
@@ -459,7 +490,15 @@ export class NormatiaClient {
       case 422:
         return new ValidationError(message, detail, code, requestId);
       case 429:
-        return new RateLimitError(message, detail, code, requestId, retryAfter);
+        // In `detail` on the /api routes, at the root of the problem on /v1.
+        return new RateLimitError(
+          message,
+          detail,
+          code,
+          requestId,
+          retryAfter,
+          this.asString(nested?.group) ?? this.asString(body?.group),
+        );
       default:
         return new NormatiaError(message, statusCode, detail, code, requestId);
     }
