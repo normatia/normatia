@@ -132,6 +132,8 @@ class ParcelAtPoint(TypedDict):
 
 class ParcelsAtPoint(TypedDict):
     object: Literal["list"]
+    # How it was searched: by a point.
+    mode: Literal["point"]
     data: List[ParcelAtPoint]
     has_more: bool
 
@@ -166,12 +168,15 @@ class AddressInterpretation(TypedDict):
 # was understood and does not exist).
 AddressSearchReason = Literal[
     "municipality_mismatch", "number_mismatch", "foral_territory", "no_reference", "no_candidates", "ambiguous",
-    "not_understood",
+    # No municipality was written: the candidates are those of the largest cities with that street.
+    "not_understood", "municipality_missing",
 ]
 
 
 class ParcelsAtAddress(TypedDict):
     object: Literal["list"]
+    # How it was searched: by an address.
+    mode: Literal["address"]
     data: List[ParcelAtAddress]
     has_more: bool
     # True: the address leads to one parcel without doubt. False: pick one in ``data`` or rephrase it.

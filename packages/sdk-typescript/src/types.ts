@@ -501,6 +501,8 @@ export interface Parcel {
 /** `GET /v1/parcels?lat=&lon=`: the parcel containing the point, or those within 50 m. */
 export interface ParcelsAtPoint {
   object: "list";
+  /** How it was searched: by a point. */
+  mode: "point";
   data: Array<{ ref: string; contains_point: boolean; distance_m: number | null }>;
   has_more: boolean;
 }
@@ -544,11 +546,15 @@ export type AddressSearchReason =
   | "no_reference"
   | "no_candidates"
   | "ambiguous"
-  | "not_understood";
+  | "not_understood"
+  /** No municipality was written: the candidates are those of the largest cities with that street. */
+  | "municipality_missing";
 
 /** `GET /v1/parcels?address=`: the parcels of an address, with what was understood and, if not exact, why. */
 export interface ParcelsAtAddress {
   object: "list";
+  /** How it was searched: by an address. */
+  mode: "address";
   data: ParcelAtAddress[];
   has_more: boolean;
   /** `true`: the address leads to one parcel without doubt. `false`: pick one in `data` or rephrase it. */
