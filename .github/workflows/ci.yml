@@ -22,8 +22,10 @@ jobs:
       - run: npm run build
   sdk-python:
     name: Python SDK (${{ matrix.python }})
-    runs-on: ubuntu-latest
+    # ubuntu-latest is Ubuntu 26.04 since November 2026, and actions/setup-python has no Python 3.9 for it.
+    runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         python: ["3.9", "3.12"]
     defaults:
