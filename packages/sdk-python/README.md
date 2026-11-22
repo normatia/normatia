@@ -38,7 +38,7 @@ async with AsyncNormatia() as client:
 Calls are paid with the credits of the key's organization, and only the calls that succeed are charged: `ask` costs 5
 (nothing if it fails), `get_parcel` with `constraints` or `zoning` 1 (0.1 without them), and every other data method
 0.1 (`find_parcels_at_point`, `find_parcels_by_address`, `suggest_addresses`, `find_places`, `get_place` and the
-regulations). The account, the keys, the layers, the coverage and the sandbox are free. A test key spends nothing, and
+regulations). The account, the keys, the layers, the coverage, the sandbox and the projects are free. A test key spends nothing, and
 the Team plan deducts nothing. The balance is in `get_usage()["balance"]` and `get_me()["balance"]`; without enough
 credits the API answers 402 and the client raises `InsufficientCreditsError`, before anything is charged.
 
@@ -58,7 +58,8 @@ with what was understood (`interpreted`). `exact` is true when the address leads
 `reason` says why (`ambiguous`, `no_candidates`, `not_understood`...) and `data` holds the candidates, each with its
 `confidence` and `match`. Without the municipality it is never exact: write it, or pass `province=` (`ES-28` or its
 name). `suggest_addresses` is the autocomplete while the user types (3 characters or more): streets and, once the text
-has a number, entrances with the reference of their parcel.
+has a number, entrances with the reference of their parcel. Every call costs 0.1 credits, so call it when the user
+pauses (300 ms or so after the last keystroke), not on every key.
 
 ```python
 found = client.find_parcels_by_address("Calle Mayor 5, Madrid")
@@ -112,6 +113,7 @@ says which one was hit: the key's (`data`, `intelligence`, `mcp`) or `organizati
 | `list_layers()`, `get_coverage(place)` | `/v1/layers`, `/v1/coverage` |
 | `find_places(q, level=, within=)`, `get_place(place)` | `/v1/places` |
 | `list_regulations(...)`, `iter_regulations(...)`, `get_regulation(slug)`, `get_regulation_contents(slug)`, `get_regulation_section(slug, section)` | `/v1/regulations` |
+| `list_projects()`, `get_project_info(project_id=)` | `/api/v1/projects`, `/api/v1/project/info` |
 | `ask(query, project_id=)` | `/api/v2/ask` (5 credits) |
 
 Responses are plain dicts, typed with `TypedDict` for editors (`normatia.types`).

@@ -349,3 +349,34 @@ def test_get_usage_returns_the_balance() -> None:
     result = _client_with(lambda r: httpx.Response(200, json=usage)).get_usage()
     assert result["totals"]["credits"] == 6.1
     assert result["balance"] is not None and result["balance"]["available"] == 93.9
+
+
+def test_list_projects_and_get_project_info() -> None:
+    sent = []
+    projects = {"projects": [{"project_id": "p1", "name": "Vivienda en Getafe", "description": None,
+                              "geo_id": "ES-28065", "location": "Getafe", "collection_count": 40,
+                              "file_count": 2, "is_active": True}], "total": 1}
+    info = {"project_id": "p1", "name": "Vivienda en Getafe", "is_active": True, "project_description": "",
+            "geo_context": None, "collection_count": 40, "file_count": 2, "files": [], "collections": [],
+            "unselected_collections": [], "generated_documents": [], "memory": [], "calculations": [],
+            "available_calculators": []}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append((request.url.path, dict(request.url.params)))
+        return httpx.Response(200, json=projects if request.url.path == "/api/v1/projects" else info)
+
+    client = _client_with(handler)
+    assert client.list_projects()["projects"][0]["is_active"] is True
+    assert client.get_project_info()["project_id"] == "p1"
+    assert client.get_project_info("p1")["name"] == "Vivienda en Getafe"
+    assert sent == [("/api/v1/projects", {}), ("/api/v1/project/info", {}),
+                    ("/api/v1/project/info", {"project_id": "p1"})]
+
+
+async def test_the_async_client_lists_projects() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"projects": [], "total": 0})
+
+    async with AsyncNormatia(KEY, http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler))) as client:
+        result = await client.list_projects()
+    assert result["total"] == 0

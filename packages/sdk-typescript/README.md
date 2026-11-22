@@ -183,7 +183,9 @@ If the territorial database does not answer, it throws a `NormatiaError` with
 Autocomplete while the user types (3 characters or more): streets
 (`type: "street"`) and, once the text has a number, entrances with the
 reference of their parcel (`type: "address"`, `ref`). Up to `limit`
-suggestions, from 1 to 10 (6 by default).
+suggestions, from 1 to 10 (6 by default). Every call costs 0.1 credits, so
+call it when the user pauses (300 ms or so after the last keystroke), not on
+every key.
 
 ```ts
 const { data } = await client.suggestAddresses("Hermosilla 4", { limit: 5 });

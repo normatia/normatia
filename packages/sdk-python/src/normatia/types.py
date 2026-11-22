@@ -362,6 +362,69 @@ class RegulationSection(TypedDict):
     blocks: List[RegulationBlock]
 
 
+# ── Projects ────────────────────────────────────────────────────────────
+
+
+class ProjectListItem(TypedDict):
+    project_id: str
+    name: str
+    description: Optional[str]
+    geo_id: Optional[str]
+    location: Optional[str]
+    collection_count: int
+    file_count: int
+    # The project used when no project_id is passed.
+    is_active: bool
+
+
+class ProjectList(TypedDict):
+    projects: List[ProjectListItem]
+    total: int
+
+
+class ProjectGeoContext(TypedDict):
+    geo_id: str
+    name: str
+    level: str
+    ancestors: str
+    climate_zone: Optional[str]
+    # Readable summary of the territory's technical data: climate, wind, snow, seismic...
+    tech_data_summary: str
+
+
+class ProjectCollection(TypedDict):
+    slug: str
+    title: str
+    scope: str
+    scope_label: str
+    # The edition in force: the only valid answer to which version applies.
+    version: Optional[str]
+
+
+class ProjectInfo(TypedDict):
+    """The full context of a project: the same one the agentic engine works from."""
+
+    project_id: str
+    name: Optional[str]
+    is_active: bool
+    project_description: str
+    geo_context: Optional[ProjectGeoContext]
+    collection_count: int
+    file_count: int
+    files: List[str]
+    collections: List[ProjectCollection]
+    # Regulations that apply to the territory and the project has not selected: slug, title, scope.
+    unselected_collections: List[Dict[str, Any]]
+    # Documents generated in the project: titulo, tipo, version.
+    generated_documents: List[Dict[str, Any]]
+    # Facts the user recorded about the building: key, label, value, unit, source.
+    memory: List[Dict[str, Any]]
+    # Saved calculations: calculation_id, calculator_id, name, summary, compliant.
+    calculations: List[Dict[str, Any]]
+    # Calculators available to the project: calculator_id, title.
+    available_calculators: List[Dict[str, Any]]
+
+
 # ── Intelligence ────────────────────────────────────────────────────────
 
 AskV2Response = Dict[str, Any]

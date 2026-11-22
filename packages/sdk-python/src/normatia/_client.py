@@ -7,8 +7,8 @@ credits.
 
 Calls are paid with the credits of the key's organization, and only the ones that succeed: ``ask`` costs 5 (nothing if
 it fails), a parcel with ``constraints`` or ``zoning`` 1, and every other data call 0.1. The account, the keys, the
-layers, the coverage and the sandbox are free. A test key spends nothing, and the Team plan deducts nothing. Without
-enough credits the API answers 402 (``InsufficientCreditsError``).
+layers, the coverage, the sandbox and the projects are free. A test key spends nothing, and the Team plan deducts
+nothing. Without enough credits the API answers 402 (``InsufficientCreditsError``).
 """
 from __future__ import annotations
 
@@ -36,6 +36,8 @@ from .types import (
     ParcelsAtPoint,
     PlaceDetail,
     PlaceList,
+    ProjectInfo,
+    ProjectList,
     Regulation,
     RegulationContents,
     RegulationDetail,
@@ -222,6 +224,20 @@ class _Methods:
         path = (f"/v1/regulations/{_path_part(_required(slug, 'slug'))}"
                 f"/sections/{_path_part(_required(section, 'section'))}")
         return self._call(_Request("GET", path, {"version": version, "format": format}))
+
+    # ── Projects ────────────────────────────────────────────────────────
+
+    def list_projects(self) -> ProjectList:
+        """The user's projects on normatia.com, with their ``project_id``, location and which one is active. Free."""
+        return self._call(_Request("GET", "/api/v1/projects"))
+
+    def get_project_info(self, project_id: Optional[str] = None) -> ProjectInfo:
+        """The full context of a project: location and technical data, the regulations that apply with the edition in
+        force, the ones not selected, its documents, the facts the user recorded and its saved calculations.
+
+        Omit ``project_id`` to use the user's active project. Free.
+        """
+        return self._call(_Request("GET", "/api/v1/project/info", {"project_id": project_id}))
 
     # ── Queries ─────────────────────────────────────────────────────────
 
@@ -507,6 +523,12 @@ class AsyncNormatia(_Base):
             version: Optional[str] = None,
             format: Optional[str] = None,
         ) -> RegulationSection:
+            ...
+
+        async def list_projects(self) -> ProjectList:  # type: ignore[override]
+            ...
+
+        async def get_project_info(self, project_id: Optional[str] = None) -> ProjectInfo:  # type: ignore[override]
             ...
 
         async def ask(self, query: str, *, project_id: Optional[str] = None) -> AskV2Response:  # type: ignore[override]
