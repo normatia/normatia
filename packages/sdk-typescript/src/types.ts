@@ -96,16 +96,13 @@ export interface CodeDetail {
   documents: DocumentVersion[];
 }
 
+/** @deprecated Part of {@link VerifyRequest}: `POST /api/v1/verify` is retired (410). */
 export interface CodeReference {
   slug: string;
-  /**
-   * Accepted by the API but currently ignored: verification always searches the
-   * versions in force.
-   */
   version?: string;
 }
 
-/** A source of the frozen `POST /api/v1/ask`. */
+/** @deprecated A source of the retired `POST /api/v1/ask` (410). */
 export interface Source {
   index: number;
   citation_type?: string;
@@ -120,24 +117,19 @@ export interface Source {
   [key: string]: unknown;
 }
 
-/** Location used to resolve a verification or a frozen v1 question. */
+/** @deprecated Location of the retired `POST /api/v1/verify` and `POST /api/v1/ask` (410). */
 export interface GeoContext {
   geo_id: string;
   name: string;
   climate_zone?: string | null;
 }
 
-/**
- * @deprecated Body of the frozen `POST /api/v1/ask`. Use {@link AskV2Request}.
- *
- * The endpoint no longer accepts `geo_id`, `codes` or `messages`: the scope of a
- * query comes from its project. Sending any of them returns 422.
- */
+/** @deprecated Body of the retired `POST /api/v1/ask`, which answers 410. Use {@link AskV2Request}. */
 export interface AskRequest {
   query: string;
 }
 
-/** @deprecated Response of the frozen `POST /api/v1/ask`. Use {@link AskV2Response}. */
+/** @deprecated Response of the retired `POST /api/v1/ask`, which answers 410. Use {@link AskV2Response}. */
 export interface AskResponse {
   answer: string;
   sources: Source[];
@@ -277,26 +269,18 @@ export interface ProjectInfoResponse {
   available_calculators: ProjectCalculator[];
 }
 
-/**
- * Body of `POST /api/v1/verify`.
- *
- * `geo_id` must be the location of the user's active project on normatia.com;
- * otherwise the API answers 422 `geo_id_mismatch` (or 400 `no_active_project`).
- */
+/** @deprecated Body of the retired `POST /api/v1/verify`, which answers 410. Ask with {@link AskV2Request}. */
 export interface VerifyRequest {
   element: string;
   parameter: string;
-  /** Must be greater than or equal to 0. */
   value: number;
   unit: string;
   geo_id: string;
-  /** Restrict the search to these regulations (among those that apply to the location). */
   codes?: CodeReference[];
-  /** Accepted by the API but currently not used in the evaluation. */
   context?: string;
 }
 
-/** A source cited by a verification. */
+/** @deprecated A source of the retired `POST /api/v1/verify` (410). */
 export interface VerifySource {
   index: number;
   code_slug: string;
@@ -306,14 +290,13 @@ export interface VerifySource {
   url?: string | null;
 }
 
+/** @deprecated Response of the retired `POST /api/v1/verify` (410). */
 export interface VerifyResponse {
   is_compliant: boolean;
-  /** compliant | conditional | non_compliant | undetermined */
   result_status: "compliant" | "conditional" | "non_compliant" | "undetermined" | string;
   element: string;
   parameter: string;
   provided_value: number;
-  /** `null` when the limit is not quantifiable or was not found. */
   limit_value: number | null;
   unit: string;
   conditions: string[];
@@ -322,7 +305,7 @@ export interface VerifyResponse {
   geo_context: GeoContext | null;
 }
 
-/** `GET /v1/me`: the key, its organization and its limits. */
+/** `GET /v1/me`: the key, its organization, its limits and the organization's credit balance. */
 export interface MeResponse {
   key: {
     id: string;
@@ -332,8 +315,9 @@ export interface MeResponse {
     /** Last characters of the key, as shown in Mi cuenta > Claves API. */
     hint: string;
     /**
-     * What the key may do: `data` (reads, free), `ask` (queries, use the organization's quota) and `mcp` (the MCP
-     * server). A route without its scope answers `403 insufficient_scope`.
+     * What the key may do: `data` (parcels, places, regulations and projects), `ask` (queries) and `mcp` (the MCP
+     * server). Both `data` and `ask` calls spend the organization's credits. A route without its scope answers
+     * `403 insufficient_scope`.
      */
     scopes: Array<"data" | "ask" | "mcp">;
     created_at: string;
@@ -358,7 +342,10 @@ export interface MeResponse {
      */
     organization_per_minute: number;
   };
+  /** The query allowance of the plans before credits. It no longer limits anything: see `balance`. */
   quota: Quota;
+  /** The organization's credit balance; `null` while its account does not work with credits. */
+  balance: Balance | null;
 }
 
 /** One of the user's keys in `GET /v1/keys`, active or revoked. */
@@ -377,7 +364,10 @@ export interface KeyListItem {
   current: boolean;
 }
 
-/** Credits left this month. Without a monthly cap, `unlimited` is true and `remaining` null. */
+/**
+ * The monthly query allowance of the plans before credits. With credits it no longer limits anything: what an
+ * organization can spend is in {@link Balance}. Without a monthly cap, `unlimited` is true and `remaining` null.
+ */
 export interface Quota {
   unlimited: boolean;
   remaining: number | null;
@@ -393,9 +383,33 @@ export interface UsageParams {
 
 export interface UsageRow {
   calls: number;
+  /**
+   * Credits charged at the tariff of each call: 5 a query, 1 a parcel with constraints or zoning, 0.1 any other data
+   * call, 0 the free ones. It may have decimals.
+   */
   credits: number;
   /** Calls that ended in a 4xx or 5xx status. */
   errors: number;
+}
+
+/** The organization's credit wallet, in `getUsage()` and `getMe()`. */
+export interface Balance {
+  /** The balance: the plan's credits plus the purchased ones. */
+  credits: number;
+  /** The plan's credits, which expire on the billing day. */
+  plan_credits: number;
+  /** The purchased credits, which only expire after 24 months without activity. */
+  purchased_credits: number;
+  /** Set aside by actions in progress (a query, a review). */
+  reserved: number;
+  /** What can be spent right now: the balance minus what is reserved. */
+  available: number;
+  /**
+   * `standard`: everything is deducted. `unlimited`: nothing is (Team). `unlimited_queries`: queries are not deducted,
+   * everything else is (the former Pro plan).
+   */
+  mode: "standard" | "unlimited" | "unlimited_queries";
+  plan_credits_expire_at: string | null;
 }
 
 /** `GET /v1/usage`: calls and credits between two dates. */
@@ -409,7 +423,10 @@ export interface UsageResponse {
   by_endpoint: Array<UsageRow & { endpoint: string }>;
   by_day: Array<UsageRow & { date: string }>;
   this_key: UsageRow;
+  /** The query allowance of the plans before credits. It no longer limits anything: see `balance`. */
   quota: Quota;
+  /** The organization's credit balance; `null` while its account does not work with credits. */
+  balance: Balance | null;
 }
 
 export type ParcelInclude = "constraints" | "zoning" | "buildings" | "units" | "geometry";

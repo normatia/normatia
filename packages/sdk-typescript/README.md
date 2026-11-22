@@ -54,11 +54,10 @@ console.log(answer.answer);
 ## Authentication
 
 Create a key on normatia.com, in [your account](https://normatia.com/es/area-usuario/cuenta)
-(section "Claves API"). API access is turned on per organization (write to
-hola@normatia.com); a key from an organization without it gets `403 api_not_enabled`.
-The key acts as the user who created it, within its organization: it sees that
-organization's projects only, and its usage
-counts against its organization.
+(section "Claves API"). Every organization has the API and the MCP server
+turned on. The key acts as the user who created it, within its organization:
+it sees that organization's projects only, and its calls spend that
+organization's credits.
 
 Pass your API key to the client constructor. The SDK sends:
 
@@ -72,34 +71,54 @@ const client = new NormatiaClient({
 });
 ```
 
+## Credits
+
+Calls are paid with the credits of the key's organization, and only the calls
+that succeed are charged:
+
+| Methods | Credits |
+| --- | --- |
+| `askV2` | 5, nothing if it fails |
+| `getParcel` with `constraints` or `zoning` | 1 (0.1 without them) |
+| `findParcelsAtPoint`, `findParcelsByAddress`, `suggestAddresses`, `findPlaces`, `getPlace`, `listRegulations`, `getRegulation`, `getRegulationContents`, `getRegulationSection`, `searchLocations`, `getLocation`, `searchCodes`, `getCode` | 0.1 |
+| `getMe`, `getUsage`, `listKeys`, `revokeKey`, `listLayers`, `getCoverage`, `getSandbox`, `listProjects`, `getProjectInfo` | Free |
+
+A test key (`sk-normatia-test-...`) spends nothing, and the Team plan deducts
+nothing. Without enough credits the API answers `402` and the SDK throws
+`InsufficientCreditsError`, before anything is charged. The balance is in
+`balance`, from `getUsage()` or `getMe()`; credits are bought on normatia.com.
+
 ## API Methods
 
 Every method calls an existing route of the API and resolves with its JSON
-body. Data methods (account, locations, codes, projects) are free and limited
-to 60 requests per minute per key, and to 300 per minute for the whole
-organization, adding up all its keys (`rate_limits.organization_per_minute` in
-`getMe`); `askV2` and `verify` consume 1 credit per call.
+body. The data routes and the account are limited to 60 requests per minute
+per key, and to 300 per minute for the whole organization, adding up all its
+keys (`rate_limits.organization_per_minute` in `getMe`); `askV2` has the plan's
+own limit (`rate_limits.intelligence_per_minute`).
 
 ### getMe()
 
 The key, its organization, what it has turned on (API and MCP), its
-per-minute limits and the credits left this month. Call it first: if it
+per-minute limits and the organization's credit balance. Call it first: if it
 answers, the key works.
 
 ```ts
 const me = await client.getMe();
-console.log(me.organization?.name, me.organization?.api_enabled, me.quota.remaining);
+console.log(me.organization?.name, me.key.scopes, me.balance?.available);
 ```
+
+`quota` belongs to the plans before credits and no longer limits anything.
 
 ### getUsage(params?)
 
 Calls and credits of the key's organization between two dates (UTC, both
-included), by endpoint and by day, with this key's share. Defaults to the
-current month; at most 92 days per call.
+included), by endpoint and by day, with this key's share, and the credit
+balance. `credits` is charged at the tariff of each call, so it may have
+decimals. Defaults to the current month; at most 92 days per call.
 
 ```ts
 const usage = await client.getUsage({ from: "2026-11-01", to: "2026-11-30" });
-console.log(usage.totals.calls, usage.totals.credits);
+console.log(usage.totals.calls, usage.totals.credits, usage.balance?.available);
 ```
 
 ### listKeys() and revokeKey(keyId)
@@ -187,7 +206,7 @@ const missing = coverage.layers.filter((l) => l.status !== "complete").map((l) =
 
 A sandbox key (`sk-normatia-test-...`, from Mi cuenta > Claves API > Clave de
 prueba) works with the same client: it answers with about fifty fixed parcels
-and the public catalog, without quota. `getSandbox()` lists the parcels.
+and the public catalog, and spends no credits. `getSandbox()` lists the parcels.
 
 ```ts
 const client = new NormatiaClient({ apiKey: process.env.NORMATIA_TEST_KEY! });
@@ -274,12 +293,13 @@ const code = await client.getCode("cte-db-he");
 
 The API also has `GET /api/v1/codes/{slug}/latest` (versions in force) and
 `GET /api/v1/codes/{slug}/{version}` (one version with its section index); the
-SDK has no method for them yet. The catalog never returns the text of a
-regulation: to get what a regulation says, with citations, use `askV2`.
+SDK has no method for them yet. This catalog never returns the text of a
+regulation: read it with `getRegulationContents` and `getRegulationSection`,
+or have it interpreted, with citations, with `askV2`.
 
 ### listProjects()
 
-List the projects this key can query. Free: it does not consume quota.
+List the projects this key can query. Free.
 
 ```ts
 const { projects } = await client.listProjects();
@@ -293,7 +313,7 @@ const { projects } = await client.listProjects();
 Full context of a project: location and territory tech data, applicable
 regulations with their current edition, regulations available but not selected,
 uploaded and generated documents, recorded facts and saved calculations. Omit
-the argument to describe the active project. Free: it does not consume quota.
+the argument to describe the active project. Free.
 
 ```ts
 const project = await client.getProjectInfo("3f8c1a90-5b2e-4d77-9d21-0e5f4a6c8b13");
@@ -327,59 +347,21 @@ for (const source of answer.sources) {
 
 A turn takes noticeably longer than a plain search: the server caps it at 6
 reasoning rounds, 6 searches and 120 seconds, and the SDK waits up to 150
-seconds. Each call consumes **1 credit**, however many searches the agent runs.
+seconds. Each call costs **5 credits**, however many searches the agent runs,
+and nothing if it fails. To check a value against the regulations, ask it in
+plain words: "Does a window with U = 2.3 W/m²K comply with the DB-HE on my
+project?".
 
-### ask(request) (deprecated)
-
-Calls the frozen `POST /api/v1/ask`: a single semantic search over the active
-project, with no tools, project memory or calculations. Kept for existing
-integrations and scheduled for removal. **Use `askV2` instead.**
-
-The endpoint no longer accepts `geo_id`, `codes` or `messages`: sending any of
-them returns `422`.
-
-```ts
-const answer = await client.ask({
-  query: "What is the minimum stair width for this use case?",
-});
-
-// AskResponse
-```
-
-### verify(request)
-
-Check a technical parameter against the regulations in force for the location
-of the user's **active project**. `geo_id` must be that project's location
-(find it with `listProjects()`, the project with `is_active: true`); any other
-`geo_id` returns `422 geo_id_mismatch`, and a user with no active project gets
-`400 no_active_project`. The active project is changed on normatia.com.
-
-The evaluation is made by a language model from the retrieved regulatory text,
-so treat it as a first check with its sources, not as a certification.
-
-```ts
-const verification = await client.verify({
-  element: "Fachada de ladrillo cara vista",
-  parameter: "transmitancia térmica",
-  value: 0.35,
-  unit: "W/m²K",
-  geo_id: "ES-41091",
-  codes: [{ slug: "cte-db-he" }],
-});
-
-console.log(verification.result_status, verification.limit_value);
-// VerifyResponse
-```
-
-`codes[].version` and `context` are accepted by the API but currently ignored:
-the search always uses the versions in force.
+`ask()` and `verify()` called `POST /api/v1/ask` and `POST /api/v1/verify`,
+retired on 21 November 2026: the API answers `410 endpoint_retired` and the
+SDK throws `RetiredEndpointError`. Use `askV2`.
 
 ## TypeScript Types
 
 The SDK exports all request and response types, including:
 
 - `NormatiaConfig`
-- Account: `MeResponse`, `Quota`, `UsageParams`, `UsageResponse`, `UsageRow`, `KeyListItem`
+- Account: `MeResponse`, `Balance`, `Quota`, `UsageParams`, `UsageResponse`, `UsageRow`, `KeyListItem`
 - Parcels: `Parcel`, `ParcelInclude`, `ParcelConstraintLayer`, `ParcelZone`, `ParcelsAtPoint`, `SandboxInfo`
 - Addresses: `ParcelsAtAddress`, `ParcelAtAddress`, `AddressMatch`, `AddressInterpretation`, `AddressSearchReason`, `AddressSuggestions`, `AddressSuggestion`
 - Layers and places: `Layer`, `Coverage`, `PlaceSearchParams`, `Place`, `PlaceDetail`, `PlaceTechnicalData`, `TechnicalSource`
@@ -389,37 +371,41 @@ The SDK exports all request and response types, including:
 - `AskV2Request`, `AskV2Response`, `AskV2Source`, `AskV2Project`
 - `ProjectListResponse`, `ProjectListItem`, `ProjectInfoResponse`
 - Project sub-entities: `ProjectGeoContext`, `ProjectCollection`, `ProjectUnselectedCollection`, `ProjectGeneratedDocument`, `ProjectMemoryFact`, `ProjectCalculation`, `ProjectCalculator`
-- `VerifyRequest`, `VerifyResponse`, `VerifySource`, `CodeReference`
-- `AskRequest`, `AskResponse` (deprecated, for the frozen v1 endpoint)
 - `PaginatedResponse<T>`
-- Shared entities: `Ancestor`, `ApplicableCode`, `Source`, `GeoContext`
+- Shared entities: `Ancestor`, `ApplicableCode`
+- Retired, kept so that existing code compiles: `AskRequest`, `AskResponse`, `Source`, `VerifyRequest`, `VerifyResponse`, `VerifySource`, `CodeReference`, `GeoContext`
 
 Example:
 
 ```ts
-import type { AskV2Request, AskV2Response, ProjectInfoResponse, VerifyResponse } from "normatia";
+import type { AskV2Request, AskV2Response, Balance, ProjectInfoResponse } from "normatia";
 ```
 
 ## Error Handling
 
 The `/api/v1` and `/api/v2` routes send their errors as
-`{"detail": {"error": "<code>", "message": "..."}}`; the `/v1` routes
+`{"detail": {"error": "<code>", "message": "...", ...}}`; the `/v1` routes
 (account, parcels, layers, places and regulations) send RFC 9457 problems
-with `code` and `detail`. The SDK reads both. Every SDK error exposes:
+with `code` and `detail` and their extra fields at the root. The SDK reads
+both. Every SDK error exposes:
 
 - `statusCode`: the HTTP status (0 for network failures)
 - `requestId`: the `X-Request-Id` of the response. Include it when you contact
   support
 - `code`: the machine-readable code, such as
-  `missing_api_key`, `api_not_enabled`, `insufficient_scope` (the key lacks
-  the scope of the route), `parcel_not_found`, `not_in_sandbox`,
-  `project_not_found`, `no_active_project`, `geo_id_mismatch`,
-  `rate_limit_exceeded` or `quota_exceeded`. Branch on this, not on the message.
+  `missing_api_key`, `insufficient_scope` (the key lacks the scope of the
+  route), `insufficient_credits`, `member_limit_reached`, `parcel_not_found`,
+  `not_in_sandbox`, `project_not_found`, `no_active_project`,
+  `rate_limit_exceeded` or `endpoint_retired`. Branch on this, not on the
+  message.
 - `message`: `detail.message` when the API sends one (in English or Spanish);
   otherwise a summary built from the code, the validation errors or the HTTP
   status
-- `detail`: the raw `detail` value, with extra fields such as `remaining` and
-  `reset_at` on `quota_exceeded`
+- `detail`: the raw `detail` value of the body
+- `body`: the whole decoded body, with the extra fields of each error wherever
+  the route puts them
+- `available` and `required` (`insufficient_credits`), or `limit` and `spent`
+  (`member_limit_reached`): only on `InsufficientCreditsError`
 - `retryAfter` (only `RateLimitError`): seconds to wait, from `Retry-After`
 - `group` (only `RateLimitError`, on `rate_limit_exceeded`): which per-minute
   limit was hit, the key's (`data`, `intelligence`, `mcp`) or `organization`,
@@ -428,22 +414,28 @@ with `code` and `detail`. The SDK reads both. Every SDK error exposes:
 The SDK throws typed errors for common HTTP statuses:
 
 - `AuthenticationError` (401)
+- `InsufficientCreditsError` (402): not enough credits, or the member's monthly
+  limit; nothing was charged
 - `ForbiddenError` (403)
 - `NotFoundError` (404)
+- `RetiredEndpointError` (410): `ask()` and `verify()`
 - `ValidationError` (422)
-- `RateLimitError` (429)
+- `RateLimitError` (429): a per-minute limit. `quota_exceeded` belongs to the
+  plans before credits and is no longer sent
 - `NormatiaError` (fallback for other API/network errors)
 
+All of them extend `NormatiaError`.
+
 ```ts
-import { NormatiaClient, AuthenticationError, RateLimitError, NormatiaError } from "normatia";
+import { NormatiaClient, AuthenticationError, InsufficientCreditsError, RateLimitError, NormatiaError } from "normatia";
 
 try {
   await client.askV2({ query: "¿Qué altura libre mínima exige la ordenanza?" });
 } catch (error) {
   if (error instanceof AuthenticationError) {
     console.error("Invalid API key");
-  } else if (error instanceof RateLimitError && error.code === "quota_exceeded") {
-    console.error("No credits left until", (error.detail as { reset_at?: string | null })?.reset_at);
+  } else if (error instanceof InsufficientCreditsError) {
+    console.error(`Not enough credits: ${error.available} available, ${error.required} needed`);
   } else if (error instanceof RateLimitError) {
     console.error(`Too many requests (${error.group} limit), retry in ${error.retryAfter ?? 60} s`);
   } else if (error instanceof NormatiaError) {

@@ -1,9 +1,11 @@
 import {
   AuthenticationError,
   ForbiddenError,
+  InsufficientCreditsError,
   NormatiaError,
   NotFoundError,
   RateLimitError,
+  RetiredEndpointError,
   ValidationError,
 } from "./errors";
 import type {
@@ -48,13 +50,22 @@ import type {
 /**
  * A turn of the agentic engine is capped server-side at 120 s. The client waits
  * longer on purpose: aborting early does not stop the turn, it just spends the
- * credit and throws the answer away.
+ * credits and throws the answer away.
  */
 const ASK_V2_TIMEOUT_MS = 150_000;
 
 type QueryValue = string | number | boolean | undefined | null;
 type QueryParams = Record<string, QueryValue>;
 
+/**
+ * The Normatia API client.
+ *
+ * Calls are paid with the credits of the key's organization, and only the ones that succeed: `askV2` costs 5 credits
+ * (nothing if it fails), a parcel with `constraints` or `zoning` 1, and every other data call 0.1. The account, the
+ * keys, the layers, the coverage, the sandbox and the projects are free. A test key (`sk-normatia-test-`) spends
+ * nothing, and the Team plan deducts nothing. Without enough credits the API answers 402 and the client throws
+ * {@link InsufficientCreditsError}. The balance is in `getUsage()` and `getMe()`, under `balance`.
+ */
 export class NormatiaClient {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -68,6 +79,7 @@ export class NormatiaClient {
     this.baseUrl = (config.baseUrl ?? "https://api.normatia.com").replace(/\/+$/, "");
   }
 
+  /** Countries, regions, provinces and municipalities by name (case- and accent-insensitive). 0.1 credits. */
   async searchLocations(params: LocationSearchParams): Promise<{ results: LocationResult[] }> {
     const q = this.requireNonEmptyString(params.q, "q");
 
@@ -81,12 +93,14 @@ export class NormatiaClient {
     });
   }
 
+  /** A location with its ancestors, its tech data and the regulations that apply to it. 0.1 credits. */
   async getLocation(geoId: string): Promise<LocationDetail> {
     const normalizedGeoId = this.requireNonEmptyString(geoId, "geoId");
 
     return this._request<LocationDetail>(`/api/v1/location/${encodeURIComponent(normalizedGeoId)}`);
   }
 
+  /** The regulation catalog by title, scope or tag, paginated. 0.1 credits. */
   async searchCodes(params: CodeSearchParams = {}): Promise<PaginatedResponse<CodeResult>> {
     if (params.page !== undefined && (!Number.isInteger(params.page) || params.page < 1)) {
       throw new ValidationError("page must be an integer greater than or equal to 1.", {
@@ -117,6 +131,7 @@ export class NormatiaClient {
     });
   }
 
+  /** A regulation with all its versions, those in force first. 0.1 credits. */
   async getCode(slug: string): Promise<CodeDetail> {
     const normalizedSlug = this.requireNonEmptyString(slug, "slug");
 
@@ -124,9 +139,9 @@ export class NormatiaClient {
   }
 
   /**
-   * @deprecated Calls the frozen `POST /api/v1/ask`: a single semantic search
-   * over the active project, with no tools, project memory or calculations.
-   * Kept for existing integrations; it will be removed in a future release.
+   * @deprecated Retired. `POST /api/v1/ask` was retired on 21 November 2026 and
+   * answers 410 `endpoint_retired`, so this method throws
+   * {@link RetiredEndpointError}. It stays so that existing code still compiles.
    * Use {@link NormatiaClient.askV2} instead.
    */
   async ask(request: AskRequest): Promise<AskResponse> {
@@ -151,7 +166,9 @@ export class NormatiaClient {
    * {@link NormatiaClient.listProjects} to query any other, without changing
    * what the user sees on the website.
    *
-   * Consumes 1 credit per call, however many searches the agent runs.
+   * Costs 5 credits, however many searches the agent runs, and nothing if it
+   * fails or does not answer. Without enough credits it throws
+   * {@link InsufficientCreditsError} (402) before running.
    */
   async askV2(request: AskV2Request): Promise<AskV2Response> {
     this.requireNonEmptyString(request.query, "query");
@@ -165,7 +182,7 @@ export class NormatiaClient {
 
   /**
    * List the projects this key can query, with their `project_id`, location and
-   * which one is active. Free: it does not consume quota.
+   * which one is active. Free.
    */
   async listProjects(): Promise<ProjectListResponse> {
     return this._request<ProjectListResponse>("/api/v1/projects");
@@ -177,8 +194,7 @@ export class NormatiaClient {
    * selected, uploaded and generated documents, recorded facts and saved
    * calculations.
    *
-   * Omit `projectId` to describe the user's active project. Free: it does not
-   * consume quota.
+   * Omit `projectId` to describe the user's active project. Free.
    */
   async getProjectInfo(projectId?: string): Promise<ProjectInfoResponse> {
     return this._request<ProjectInfoResponse>("/api/v1/project/info", {
@@ -188,13 +204,10 @@ export class NormatiaClient {
   }
 
   /**
-   * Check a technical parameter against the regulations in force for the
-   * location of the user's active project.
-   *
-   * `geo_id` must be that project's location: any other answers 422
-   * `geo_id_mismatch`, and a user without an active project gets 400
-   * `no_active_project`. The result is produced by a language model from the
-   * retrieved regulatory text, with its sources. Consumes 1 credit per call.
+   * @deprecated Retired. `POST /api/v1/verify` was retired on 21 November 2026
+   * and answers 410 `endpoint_retired`, so this method throws
+   * {@link RetiredEndpointError}. It stays so that existing code still compiles.
+   * To check a value, ask the question with {@link NormatiaClient.askV2}.
    */
   async verify(request: VerifyRequest): Promise<VerifyResponse> {
     this.requireNonEmptyString(request.element, "element");
@@ -217,8 +230,8 @@ export class NormatiaClient {
 
   /**
    * The key, its organization, what it has turned on (API and MCP), its
-   * per-minute limits and the credits left this month. The first call to make
-   * when integrating: if it answers, the key works. Free.
+   * per-minute limits and the organization's credit balance (`balance`). The
+   * first call to make when integrating: if it answers, the key works. Free.
    */
   async getMe(): Promise<MeResponse> {
     return this._request<MeResponse>("/v1/me");
@@ -226,8 +239,9 @@ export class NormatiaClient {
 
   /**
    * Calls and credits of the key's organization between two dates (UTC, both
-   * included; YYYY-MM-DD), by endpoint and by day, with this key's share.
-   * Defaults to the current month; at most 92 days per call. Free.
+   * included; YYYY-MM-DD), by endpoint and by day, with this key's share, and
+   * the organization's credit balance (`balance`). Defaults to the current
+   * month; at most 92 days per call. Free.
    */
   async getUsage(params: UsageParams = {}): Promise<UsageResponse> {
     return this._request<UsageResponse>("/v1/usage", {
@@ -256,7 +270,8 @@ export class NormatiaClient {
    * A parcel by its cadastral reference (14 characters, or the 20 of a unit),
    * from Normatia's territorial database. Ask for more blocks in the same call
    * with `include`: constraints, zoning, buildings, geometry. A layer without
-   * data comes back with `affected: null`, never as "not affected". Free.
+   * data comes back with `affected: null`, never as "not affected". Costs 1
+   * credit with `constraints` or `zoning`, 0.1 without them.
    */
   async getParcel(ref: string, options: { include?: ParcelInclude[] } = {}): Promise<Parcel> {
     const normalizedRef = this.requireNonEmptyString(ref, "ref").replace(/\s+/g, "").toUpperCase();
@@ -271,7 +286,7 @@ export class NormatiaClient {
    * The parcel containing a point (WGS84 latitude and longitude) or, if it
    * falls in none, those within 50 m, nearest first. An empty list means no
    * parcel nearby (the sea, a large square) or a territory not in the base.
-   * Free.
+   * 0.1 credits.
    */
   async findParcelsAtPoint(lat: number, lon: number): Promise<ParcelsAtPoint> {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
@@ -286,7 +301,7 @@ export class NormatiaClient {
    * parcel), from the entrances of the Cadastre and CartoCiudad. `exact` tells whether it leads to one parcel without
    * doubt; if not, `reason` says why and `data` holds the candidates. Without the municipality in the text it is
    * never exact. `province` (`ES-28` or its name) narrows the search when the text does not say it; an unknown
-   * province answers `422 invalid_place`. Free.
+   * province answers `422 invalid_place`. 0.1 credits.
    */
   async findParcelsByAddress(address: string, options: { province?: string } = {}): Promise<ParcelsAtAddress> {
     return this._request<ParcelsAtAddress>("/v1/parcels", {
@@ -301,7 +316,7 @@ export class NormatiaClient {
   /**
    * Address autocomplete, while the user types (3 characters or more): the streets that start that way and, once the
    * text has a number, the entrances with the reference of their parcel. `limit` goes from 1 to 10 (6 by default).
-   * Free.
+   * 0.1 credits.
    */
   async suggestAddresses(q: string, options: { limit?: number } = {}): Promise<AddressSuggestions> {
     return this._request<AddressSuggestions>("/v1/addresses", {
@@ -323,12 +338,12 @@ export class NormatiaClient {
     });
   }
 
-  /** The sandbox parcels (what a `sk-normatia-test-` key answers with), with the case each one covers. */
+  /** The sandbox parcels (what a `sk-normatia-test-` key answers with), with the case each one covers. Free. */
   async getSandbox(): Promise<SandboxInfo> {
     return this._request<SandboxInfo>("/v1/sandbox");
   }
 
-  /** Municipalities, provinces and regions by name (accent-insensitive) or INE code. Free. */
+  /** Municipalities, provinces and regions by name (accent-insensitive) or INE code. 0.1 credits. */
   async findPlaces(params: PlaceSearchParams): Promise<{ object: "list"; data: Place[]; has_more: boolean }> {
     return this._request("/v1/places", {
       method: "GET",
@@ -336,12 +351,18 @@ export class NormatiaClient {
     });
   }
 
-  /** A place (`ES-41091` or `41091`); for a municipality, its location and technical data with their sources. Free. */
+  /**
+   * A place (`ES-41091` or `41091`); for a municipality, its location and technical data with their sources.
+   * 0.1 credits.
+   */
   async getPlace(place: string): Promise<PlaceDetail> {
     return this._request<PlaceDetail>(`/v1/places/${encodeURIComponent(this.requireNonEmptyString(place, "place"))}`);
   }
 
-  /** The regulation catalog with each current version, filtered by text, scope, tag or place. Cursor-paginated. */
+  /**
+   * The regulation catalog with each current version, filtered by text, scope, tag or place. Cursor-paginated.
+   * 0.1 credits.
+   */
   async listRegulations(params: RegulationListParams = {}): Promise<RegulationList> {
     return this._request<RegulationList>("/v1/regulations", {
       method: "GET",
@@ -349,12 +370,12 @@ export class NormatiaClient {
     });
   }
 
-  /** A regulation, its versions (with `has_text`) and its related documents (comments, guides). */
+  /** A regulation, its versions (with `has_text`) and its related documents (comments, guides). 0.1 credits. */
   async getRegulation(slug: string): Promise<RegulationDetail> {
     return this._request<RegulationDetail>(`/v1/regulations/${encodeURIComponent(this.requireNonEmptyString(slug, "slug"))}`);
   }
 
-  /** The table of contents of a version (the current one if `version` is omitted). */
+  /** The table of contents of a version (the current one if `version` is omitted). 0.1 credits. */
   async getRegulationContents(slug: string, options: { version?: string } = {}): Promise<RegulationContents> {
     return this._request<RegulationContents>(
       `/v1/regulations/${encodeURIComponent(this.requireNonEmptyString(slug, "slug"))}/contents`,
@@ -362,7 +383,7 @@ export class NormatiaClient {
     );
   }
 
-  /** The text of one section, block by block, with stable slugs. `format: "html"` adds the formatted text. */
+  /** The text of one section, block by block, with stable slugs. `format: "html"` adds the formatted text. 0.1 credits. */
   async getRegulationSection(
     slug: string,
     section: string,
@@ -453,11 +474,13 @@ export class NormatiaClient {
    * Build a typed error from an API error response.
    *
    * The `/api/v1` and `/api/v2` routes wrap their errors in `detail`:
-   * `{"detail": {"error": "<code>", "message": "..."}}`. Validation errors send
-   * `detail` as a list, an unknown route sends `{"detail": "Not Found"}`, and
-   * the MCP gateway puts `error`/`message` at the root. The `/v1` routes answer
-   * RFC 9457 problems: `{"code": "<code>", "detail": "<message>", ...}`. The
-   * message falls back in that order and ends at the HTTP status text.
+   * `{"detail": {"error": "<code>", "message": "...", ...}}`. Validation errors
+   * send `detail` as a list, an unknown route sends `{"detail": "Not Found"}`,
+   * and the MCP gateway puts `error`/`message` at the root. The `/v1` routes
+   * answer RFC 9457 problems: `{"code": "<code>", "detail": "<message>", ...}`,
+   * with their extra fields at the root. The message falls back in that order
+   * and ends at the HTTP status text. Every error keeps the whole body in
+   * `body`.
    */
   private mapError(statusCode: number, statusText: string, payload: unknown, headers?: Headers): NormatiaError {
     const body = this.isRecord(payload) ? payload : undefined;
@@ -482,13 +505,18 @@ export class NormatiaClient {
 
     switch (statusCode) {
       case 401:
-        return new AuthenticationError(message, detail, code, requestId);
+        return new AuthenticationError(message, detail, code, requestId, payload);
+      case 402:
+        // `available` and `required` (or `limit` and `spent`): in `detail` on the /api routes, at the root on /v1.
+        return new InsufficientCreditsError(message, detail, code, requestId, payload);
       case 403:
-        return new ForbiddenError(message, detail, code, requestId);
+        return new ForbiddenError(message, detail, code, requestId, payload);
       case 404:
-        return new NotFoundError(message, detail, code, requestId);
+        return new NotFoundError(message, detail, code, requestId, payload);
+      case 410:
+        return new RetiredEndpointError(message, detail, code, requestId, payload);
       case 422:
-        return new ValidationError(message, detail, code, requestId);
+        return new ValidationError(message, detail, code, requestId, payload);
       case 429:
         // In `detail` on the /api routes, at the root of the problem on /v1.
         return new RateLimitError(
@@ -498,9 +526,10 @@ export class NormatiaClient {
           requestId,
           retryAfter,
           this.asString(nested?.group) ?? this.asString(body?.group),
+          payload,
         );
       default:
-        return new NormatiaError(message, statusCode, detail, code, requestId);
+        return new NormatiaError(message, statusCode, detail, code, requestId, payload);
     }
   }
 

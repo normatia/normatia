@@ -2,8 +2,13 @@
 
 Every method is defined once in ``_Methods`` and returns whatever ``_call`` returns: the decoded JSON in the sync
 client, a coroutine in the async one. GET requests are retried on 429 ``rate_limit_exceeded``, 502, 503 and 504 and on
-network errors, waiting ``Retry-After`` when the API sends it. POST requests (``ask``, ``verify``) are never retried:
-a retry would spend a second credit.
+network errors, waiting ``Retry-After`` when the API sends it. ``ask`` is never retried: a retry would spend another 5
+credits.
+
+Calls are paid with the credits of the key's organization, and only the ones that succeed: ``ask`` costs 5 (nothing if
+it fails), a parcel with ``constraints`` or ``zoning`` 1, and every other data call 0.1. The account, the keys, the
+layers, the coverage and the sandbox are free. A test key spends nothing, and the Team plan deducts nothing. Without
+enough credits the API answers 402 (``InsufficientCreditsError``).
 """
 from __future__ import annotations
 
@@ -11,6 +16,7 @@ import asyncio
 import os
 import random
 import time
+import warnings
 from dataclasses import dataclass, field
 from datetime import date
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, Iterator, List, Optional, Sequence, Union
@@ -45,7 +51,7 @@ __version__ = "0.2.0"
 DEFAULT_BASE_URL = "https://api.normatia.com"
 DEFAULT_TIMEOUT_S = 30.0
 # A turn of the agentic engine is capped server-side at 120 s. Waiting less does not stop the turn: it spends the
-# credit and throws the answer away.
+# credits and throws the answer away.
 ASK_TIMEOUT_S = 150.0
 MAX_RETRY_WAIT_S = 30.0
 PARCEL_INCLUDES = ("constraints", "zoning", "buildings", "units", "geometry")
@@ -99,19 +105,22 @@ class _Methods:
     # ── Account ─────────────────────────────────────────────────────────
 
     def get_me(self) -> MeResponse:
-        """The key, its organization, whether it is a sandbox key, its limits and the month's quota."""
+        """The key, its organization, whether it is a sandbox key, its limits and the credit balance. Free."""
         return self._call(_Request("GET", "/v1/me"))
 
     def get_usage(self, *, from_date: Optional[DateLike] = None, to_date: Optional[DateLike] = None) -> UsageResponse:
-        """Calls and credits between two days (UTC, both included), by route and by day. At most 92 days."""
+        """Calls and credits between two days (UTC, both included), by route and by day, and the credit balance.
+
+        ``credits`` is charged at the tariff of each call, so it may have decimals. At most 92 days. Free.
+        """
         return self._call(_Request("GET", "/v1/usage", {"from": from_date, "to": to_date}))
 
     def list_keys(self) -> KeyList:
-        """The user's keys in the key's organization, active and revoked."""
+        """The user's keys in the key's organization, active and revoked. Free."""
         return self._call(_Request("GET", "/v1/keys"))
 
     def revoke_key(self, key_id: str) -> None:
-        """Revoke one of the user's keys (also the one making the call). It cannot be undone."""
+        """Revoke one of the user's keys (also the one making the call). It cannot be undone. Free."""
         return self._call(_Request("DELETE", f"/v1/keys/{_path_part(_required(key_id, 'key_id'))}", retry=False))
 
     # ── Parcels ─────────────────────────────────────────────────────────
@@ -120,7 +129,8 @@ class _Methods:
         """A parcel by its cadastral reference (14 characters, or the 20 of a unit).
 
         ``include`` adds blocks in the same call: constraints, zoning, buildings, units, geometry. A layer that is
-        not loaded in the parcel's municipality comes back ``no_data``, never ``not_affected``.
+        not loaded in the parcel's municipality comes back ``no_data``, never ``not_affected``. Costs 1 credit with
+        ``constraints`` or ``zoning``, 0.1 without them.
         """
         unknown = sorted(set(include) - set(PARCEL_INCLUDES))
         if unknown:
@@ -129,7 +139,7 @@ class _Methods:
         return self._call(_Request("GET", f"/v1/parcels/{_path_part(_required(ref, 'ref'))}", params))
 
     def find_parcels_at_point(self, lat: float, lon: float) -> ParcelsAtPoint:
-        """The parcel that contains a WGS84 point or, if none does, the nearest ones."""
+        """The parcel that contains a WGS84 point or, if none does, the nearest ones. 0.1 credits."""
         return self._call(_Request("GET", "/v1/parcels", {"lat": lat, "lon": lon}))
 
     def find_parcels_by_address(self, address: str, *, province: Optional[str] = None) -> ParcelsAtAddress:
@@ -138,6 +148,7 @@ class _Methods:
         ``exact`` tells whether it leads to one parcel without doubt; if not, ``reason`` says why and ``data`` holds
         the candidates. Without the municipality in the text it is never exact. ``province`` (``ES-28`` or its name)
         narrows the search when the text does not say it; an unknown province is a 422 ``invalid_place``.
+        0.1 credits.
         """
         params = {"address": _required(address, "address"), "province": (province or "").strip() or None}
         return self._call(_Request("GET", "/v1/parcels", params))
@@ -145,33 +156,36 @@ class _Methods:
     def suggest_addresses(self, q: str, *, limit: Optional[int] = None) -> AddressSuggestions:
         """Address autocomplete: the streets that start like ``q`` and, with a number, the entrances and their parcel.
 
-        ``q`` has 3 characters or more; ``limit`` goes from 1 to 10 (6 by default).
+        ``q`` has 3 characters or more; ``limit`` goes from 1 to 10 (6 by default). 0.1 credits.
         """
         return self._call(_Request("GET", "/v1/addresses", {"q": _required(q, "q"), "limit": limit}))
 
     def get_sandbox(self) -> SandboxInfo:
-        """The parcels a sandbox key (``sk-normatia-test-``) answers with, and the case each one covers."""
+        """The parcels a sandbox key (``sk-normatia-test-``) answers with, and the case each one covers. Free."""
         return self._call(_Request("GET", "/v1/sandbox"))
 
     # ── Layers, coverage and places ─────────────────────────────────────
 
     def list_layers(self) -> LayerList:
-        """Every constraint layer with its name, theme, mode and sources (license, attribution)."""
+        """Every constraint layer with its name, theme, mode and sources (license, attribution). Free."""
         return self._call(_Request("GET", "/v1/layers"))
 
     def get_coverage(self, place: str) -> Coverage:
-        """What is loaded for a municipality (``ES-41091`` or ``41091``): cadastre, planning and each layer."""
+        """What is loaded for a municipality (``ES-41091`` or ``41091``): cadastre, planning and each layer. Free."""
         return self._call(_Request("GET", "/v1/coverage", {"place": _required(place, "place")}))
 
     def find_places(
         self, q: str, *, level: Optional[str] = None, within: Optional[str] = None, limit: Optional[int] = None
     ) -> PlaceList:
-        """Municipalities, provinces and regions by name (accent-insensitive) or INE code."""
+        """Municipalities, provinces and regions by name (accent-insensitive) or INE code. 0.1 credits."""
         params = {"q": _required(q, "q"), "level": level, "within": within, "limit": limit}
         return self._call(_Request("GET", "/v1/places", params))
 
     def get_place(self, place: str) -> PlaceDetail:
-        """A place; for a municipality, its location and technical data, each with the regulation it comes from."""
+        """A place; for a municipality, its location and technical data, each with the regulation it comes from.
+
+        0.1 credits.
+        """
         return self._call(_Request("GET", f"/v1/places/{_path_part(_required(place, 'place'))}"))
 
     # ── Regulations ─────────────────────────────────────────────────────
@@ -187,32 +201,36 @@ class _Methods:
         limit: Optional[int] = None,
         cursor: Optional[str] = None,
     ) -> RegulationList:
-        """One page of the regulation catalog. ``iter_regulations`` walks every page."""
+        """One page of the regulation catalog. ``iter_regulations`` walks every page. 0.1 credits a page."""
         params = {"q": q, "scope": scope, "tag": tag, "place": place, "curated": curated, "limit": limit,
                   "cursor": cursor}
         return self._call(_Request("GET", "/v1/regulations", params))
 
     def get_regulation(self, slug: str) -> RegulationDetail:
-        """A regulation, its versions (with ``has_text`` and ``curated``) and its related documents."""
+        """A regulation, its versions (with ``has_text`` and ``curated``) and its related documents. 0.1 credits."""
         return self._call(_Request("GET", f"/v1/regulations/{_path_part(_required(slug, 'slug'))}"))
 
     def get_regulation_contents(self, slug: str, *, version: Optional[str] = None) -> RegulationContents:
-        """The table of contents of a version (the current one if ``version`` is omitted)."""
+        """The table of contents of a version (the current one if ``version`` is omitted). 0.1 credits."""
         path = f"/v1/regulations/{_path_part(_required(slug, 'slug'))}/contents"
         return self._call(_Request("GET", path, {"version": version}))
 
     def get_regulation_section(
         self, slug: str, section: str, *, version: Optional[str] = None, format: Optional[str] = None
     ) -> RegulationSection:
-        """The text of one section, block by block. ``format="html"`` adds the formatted text."""
+        """The text of one section, block by block. ``format="html"`` adds the formatted text. 0.1 credits."""
         path = (f"/v1/regulations/{_path_part(_required(slug, 'slug'))}"
                 f"/sections/{_path_part(_required(section, 'section'))}")
         return self._call(_Request("GET", path, {"version": version, "format": format}))
 
-    # ── Intelligence (spends credits) ───────────────────────────────────
+    # ── Queries ─────────────────────────────────────────────────────────
 
     def ask(self, query: str, *, project_id: Optional[str] = None) -> AskV2Response:
-        """A question about a project, answered by the agentic engine with its sources. One credit; 10 to 60 s."""
+        """A question about a project, answered by the agentic engine with its sources. 10 to 60 s.
+
+        Costs 5 credits, and nothing if it fails. Without enough credits it raises ``InsufficientCreditsError`` (402)
+        before running. Omit ``project_id`` to use the user's active project.
+        """
         body = {"query": _required(query, "query"), "project_id": project_id}
         return self._call(_Request("POST", "/api/v2/ask", json={k: v for k, v in body.items() if v is not None},
                                    timeout=ASK_TIMEOUT_S, retry=False))
@@ -227,7 +245,18 @@ class _Methods:
         geo_id: str,
         codes: Optional[List[Dict[str, str]]] = None,
     ) -> VerifyResponse:
-        """Whether a value complies with the applicable regulation in a place. One credit."""
+        """Retired: ``POST /api/v1/verify`` was retired on 21 November 2026 and answers 410 ``endpoint_retired``, so
+        this method raises ``RetiredEndpointError``. It stays so that existing code still runs. To check a value, ask
+        the question with ``ask``.
+
+        .. deprecated:: 0.2.0
+        """
+        warnings.warn(
+            "verify() is retired: POST /api/v1/verify answers 410 endpoint_retired since 21 November 2026. "
+            "Ask the question with ask() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         body: Dict[str, Any] = {
             "element": _required(element, "element"),
             "parameter": _required(parameter, "parameter"),

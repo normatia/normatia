@@ -3,7 +3,14 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 
-import { NormatiaClient, RateLimitError, ValidationError } from "../dist/index.mjs";
+import {
+  InsufficientCreditsError,
+  NormatiaClient,
+  NormatiaError,
+  RateLimitError,
+  RetiredEndpointError,
+  ValidationError,
+} from "../dist/index.mjs";
 
 const KEY = "sk-normatia-test-" + "a".repeat(64);
 const realFetch = globalThis.fetch;
@@ -223,4 +230,142 @@ test("quota_exceeded has no group", async () => {
     assert.equal(error.group, undefined);
     return true;
   });
+});
+
+test("a 402 on /v1 is an InsufficientCreditsError with available and required from the root", async () => {
+  const problem = {
+    type: "https://docs.normatia.com/api-reference/errores/#insufficient_credits",
+    title: "Sin créditos",
+    status: 402,
+    detail: "No quedan créditos para esta llamada: recarga en normatia.com.",
+    code: "insufficient_credits",
+    available: 0.05,
+    required: 1,
+    request_id: "req_402",
+  };
+  fakeFetch(() => json(402, problem, { "Content-Type": "application/problem+json", "X-Request-Id": "req_402" }));
+
+  await assert.rejects(client().getParcel("9872023VH5797S", { include: ["constraints"] }), (error) => {
+    assert.ok(error instanceof InsufficientCreditsError);
+    assert.ok(error instanceof NormatiaError);
+    assert.equal(error.statusCode, 402);
+    assert.equal(error.code, "insufficient_credits");
+    assert.equal(error.available, 0.05);
+    assert.equal(error.required, 1);
+    assert.equal(error.requestId, "req_402");
+    assert.equal(error.message, problem.detail);
+    assert.deepEqual(error.body, problem);
+    return true;
+  });
+});
+
+test("a 402 on /api/v2/ask reads its fields from detail", async () => {
+  fakeFetch(() =>
+    json(402, {
+      detail: {
+        error: "insufficient_credits",
+        message: "No quedan créditos para esta consulta: recarga en normatia.com.",
+        available: 3,
+        required: 5,
+      },
+    }),
+  );
+
+  await assert.rejects(client().askV2({ query: "¿Altura libre mínima?" }), (error) => {
+    assert.ok(error instanceof InsufficientCreditsError);
+    assert.equal(error.available, 3);
+    assert.equal(error.required, 5);
+    assert.equal(error.limit, undefined);
+    return true;
+  });
+});
+
+test("member_limit_reached is a 402 with limit and spent", async () => {
+  fakeFetch(() =>
+    json(402, {
+      detail: {
+        error: "member_limit_reached",
+        message: "Has llegado a tu límite mensual de créditos en esta organización.",
+        limit: 100,
+        spent: 98,
+      },
+    }),
+  );
+
+  await assert.rejects(client().askV2({ query: "¿Altura libre mínima?" }), (error) => {
+    assert.ok(error instanceof InsufficientCreditsError);
+    assert.equal(error.code, "member_limit_reached");
+    assert.equal(error.limit, 100);
+    assert.equal(error.spent, 98);
+    return true;
+  });
+});
+
+test("the retired verify and ask throw RetiredEndpointError", async () => {
+  const calls = fakeFetch(() =>
+    json(410, {
+      detail: {
+        error: "endpoint_retired",
+        message: "Esta ruta se ha retirado. Para preguntar, usa POST /api/v2/ask o la herramienta ask del MCP.",
+        docs: "https://docs.normatia.com",
+      },
+    }),
+  );
+
+  await assert.rejects(
+    client().verify({ element: "ventana", parameter: "U", value: 2.3, unit: "W/m2K", geo_id: "ES-41091" }),
+    (error) => {
+      assert.ok(error instanceof RetiredEndpointError);
+      assert.ok(error instanceof NormatiaError);
+      assert.equal(error.statusCode, 410);
+      assert.equal(error.code, "endpoint_retired");
+      return true;
+    },
+  );
+  await assert.rejects(client().ask({ query: "¿Altura libre mínima?" }), RetiredEndpointError);
+  assert.deepEqual(
+    calls.map(({ url }) => url.pathname),
+    ["/api/v1/verify", "/api/v1/ask"],
+  );
+});
+
+test("every API error keeps the whole body", async () => {
+  const body = { detail: { error: "project_not_found", message: "No existe ese proyecto." } };
+  fakeFetch(() => json(404, body));
+
+  await assert.rejects(client().getProjectInfo("3f8c1a90-5b2e-4d77-9d21-0e5f4a6c8b13"), (error) => {
+    assert.equal(error.code, "project_not_found");
+    assert.deepEqual(error.detail, body.detail);
+    assert.deepEqual(error.body, body);
+    return true;
+  });
+});
+
+test("getUsage returns the balance and decimal credits", async () => {
+  const usage = {
+    scope: "organization",
+    organization_id: "org",
+    from: "2026-11-01",
+    to: "2026-11-22",
+    totals: { calls: 12, credits: 6.1, errors: 0 },
+    by_endpoint: [],
+    by_day: [],
+    this_key: { calls: 12, credits: 6.1, errors: 0 },
+    quota: { unlimited: true, remaining: null, resets_at: null },
+    balance: {
+      credits: 93.9,
+      plan_credits: 43.9,
+      purchased_credits: 50,
+      reserved: 0,
+      available: 93.9,
+      mode: "standard",
+      plan_credits_expire_at: "2026-12-21T00:00:00Z",
+    },
+  };
+  fakeFetch(() => json(200, usage));
+
+  const result = await client().getUsage();
+
+  assert.equal(result.totals.credits, 6.1);
+  assert.equal(result.balance?.available, 93.9);
 });

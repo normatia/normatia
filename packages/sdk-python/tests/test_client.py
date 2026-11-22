@@ -7,11 +7,14 @@ import httpx
 import pytest
 
 from normatia import (
+    APIError,
     AsyncNormatia,
     ForbiddenError,
+    InsufficientCreditsError,
     Normatia,
     NotFoundError,
     RateLimitError,
+    RetiredEndpointError,
     ServiceUnavailableError,
     ValidationError,
 )
@@ -159,7 +162,7 @@ def test_a_classic_error_too() -> None:
         return httpx.Response(403, json={"detail": {"error": "not_available_in_sandbox", "message": "No en pruebas."}})
 
     with pytest.raises(ForbiddenError) as e:
-        _client_with(handler).verify(element="puerta", parameter="ancho", value=0.8, unit="m", geo_id="ES-28079")
+        _client_with(handler).ask("¿Ancho mínimo de puerta?")
     assert e.value.code == "not_available_in_sandbox" and e.value.message == "No en pruebas."
 
 
@@ -294,3 +297,55 @@ async def test_the_async_client_by_address_and_autocomplete() -> None:
     assert found["data"][0]["ref"] == suggestions["data"][0]["ref"] == "0847106VK4704F"
     assert sent == [("/v1/parcels", {"address": "Calle Mayor 5", "province": "Madrid"}),
                     ("/v1/addresses", {"q": "calle mayor 5", "limit": "2"})]
+
+
+def test_a_402_on_v1_reads_available_and_required_from_the_root() -> None:
+    problem = {"type": "https://docs.normatia.com/api-reference/errores/#insufficient_credits", "title": "Sin créditos",
+               "status": 402, "detail": "No quedan créditos para esta llamada: recarga en normatia.com.",
+               "code": "insufficient_credits", "available": 0.05, "required": 1}
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(402, json=problem, headers={"Content-Type": "application/problem+json"})
+
+    with pytest.raises(InsufficientCreditsError) as e:
+        _client_with(handler).get_parcel("6963301TG3466N", include=["constraints"])
+    assert isinstance(e.value, APIError)
+    assert e.value.status_code == 402 and e.value.code == "insufficient_credits"
+    assert e.value.available == 0.05 and e.value.required == 1
+    assert e.value.body == problem
+    assert len(calls) == 1  # a 402 is not retried
+
+
+def test_a_402_on_ask_reads_its_fields_from_detail() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(402, json={"detail": {"error": "member_limit_reached", "message": "Límite mensual.",
+                                                    "limit": 100, "spent": 98}})
+
+    with pytest.raises(InsufficientCreditsError) as e:
+        _client_with(handler).ask("¿Altura libre mínima?")
+    assert e.value.code == "member_limit_reached"
+    assert (e.value.limit, e.value.spent, e.value.available) == (100, 98, None)
+
+
+def test_verify_is_retired_with_a_warning_and_a_410() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v1/verify"
+        return httpx.Response(410, json={"detail": {"error": "endpoint_retired",
+                                                    "message": "Esta ruta se ha retirado."}})
+
+    with pytest.warns(DeprecationWarning), pytest.raises(RetiredEndpointError) as e:
+        _client_with(handler).verify(element="ventana", parameter="U", value=2.3, unit="W/m2K", geo_id="ES-41091")
+    assert isinstance(e.value, APIError)
+    assert e.value.status_code == 410 and e.value.code == "endpoint_retired"
+
+
+def test_get_usage_returns_the_balance() -> None:
+    usage = {"scope": "organization", "from": "2026-11-01", "to": "2026-11-22",
+             "totals": {"calls": 12, "credits": 6.1, "errors": 0},
+             "balance": {"credits": 93.9, "plan_credits": 43.9, "purchased_credits": 50, "reserved": 0,
+                         "available": 93.9, "mode": "standard", "plan_credits_expire_at": None}}
+    result = _client_with(lambda r: httpx.Response(200, json=usage)).get_usage()
+    assert result["totals"]["credits"] == 6.1
+    assert result["balance"] is not None and result["balance"]["available"] == 93.9

@@ -33,6 +33,24 @@ async with AsyncNormatia() as client:
     me = await client.get_me()
 ```
 
+## Credits
+
+Calls are paid with the credits of the key's organization, and only the calls that succeed are charged: `ask` costs 5
+(nothing if it fails), `get_parcel` with `constraints` or `zoning` 1 (0.1 without them), and every other data method
+0.1 (`find_parcels_at_point`, `find_parcels_by_address`, `suggest_addresses`, `find_places`, `get_place` and the
+regulations). The account, the keys, the layers, the coverage and the sandbox are free. A test key spends nothing, and
+the Team plan deducts nothing. The balance is in `get_usage()["balance"]` and `get_me()["balance"]`; without enough
+credits the API answers 402 and the client raises `InsufficientCreditsError`, before anything is charged.
+
+```python
+from normatia import InsufficientCreditsError
+
+try:
+    answer = client.ask("¿Qué altura libre mínima exige la ordenanza?")
+except InsufficientCreditsError as e:
+    print(e.code, e.available, e.required)  # insufficient_credits 3.0 5.0
+```
+
 ## Addresses
 
 `find_parcels_by_address` gives the parcels of a written address, from the entrances of the Cadastre and CartoCiudad,
@@ -56,14 +74,17 @@ for suggestion in client.suggest_addresses("Hermosilla 4", limit=5)["data"]:
 ## Sandbox keys
 
 A sandbox key (`sk-normatia-test-...`, from Mi cuenta > Claves API > Clave de prueba) works with the same client and
-needs no API activation: it answers with about fifty fixed parcels and the public catalog, without quota.
+answers with about fifty fixed parcels and the public catalog, without spending credits.
 `client.get_sandbox()` lists the parcels; `client.is_sandbox` tells which kind of key the client has.
 
 ## Errors
 
 Every error is a `NormatiaError` with `status_code`, `code` (branch on it), `message`, `request_id` (send it to
-support) and `retry_after`. By status: `AuthenticationError` (401), `ForbiddenError` (403), `NotFoundError` (404),
+support), `retry_after` and `body` (the whole response, with the extra fields of each error). By status:
+`AuthenticationError` (401), `InsufficientCreditsError` (402, with `available` and `required`, or `limit` and `spent`
+on `member_limit_reached`), `ForbiddenError` (403), `NotFoundError` (404), `RetiredEndpointError` (410),
 `ValidationError` (422), `RateLimitError` (429), `ServiceUnavailableError` (503) and `APIError` (the rest).
+`InsufficientCreditsError` and `RetiredEndpointError` are also `APIError`.
 
 ```python
 from normatia import NotFoundError
@@ -75,7 +96,7 @@ except NotFoundError as e:
 ```
 
 GET requests are retried twice on 429 `rate_limit_exceeded`, 502, 503, 504 and network errors, waiting `Retry-After`
-when the API sends it (`max_retries=` to change it). `ask` and `verify` spend a credit and are never retried.
+when the API sends it (`max_retries=` to change it). `ask` is never retried: a retry would spend another 5 credits.
 
 Besides the limits of each key, the data routes and the MCP server have one for the whole organization, adding up all
 its keys (`get_me()["rate_limits"]["organization_per_minute"]`). On a 429 `rate_limit_exceeded`, `RateLimitError.group`
@@ -91,9 +112,12 @@ says which one was hit: the key's (`data`, `intelligence`, `mcp`) or `organizati
 | `list_layers()`, `get_coverage(place)` | `/v1/layers`, `/v1/coverage` |
 | `find_places(q, level=, within=)`, `get_place(place)` | `/v1/places` |
 | `list_regulations(...)`, `iter_regulations(...)`, `get_regulation(slug)`, `get_regulation_contents(slug)`, `get_regulation_section(slug, section)` | `/v1/regulations` |
-| `ask(query, project_id=)`, `verify(element=, parameter=, value=, unit=, geo_id=)` | `/api/v2/ask`, `/api/v1/verify` (one credit each) |
+| `ask(query, project_id=)` | `/api/v2/ask` (5 credits) |
 
 Responses are plain dicts, typed with `TypedDict` for editors (`normatia.types`).
+
+`verify()` called `POST /api/v1/verify`, retired on 21 November 2026: it warns with `DeprecationWarning` and the API
+answers 410 (`RetiredEndpointError`). Ask the question with `ask` instead.
 
 ## License
 

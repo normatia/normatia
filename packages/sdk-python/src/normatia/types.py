@@ -24,13 +24,16 @@ class KeyInfo(TypedDict):
     mode: Literal["live", "test"]
     name: Optional[str]
     hint: str
-    # What the key may do: "data" (reads, free), "ask" (queries, use quota), "mcp" (the MCP server).
+    # What the key may do: "data" (parcels, places, regulations and projects), "ask" (queries), "mcp" (the MCP
+    # server). Both "data" and "ask" calls spend the organization's credits.
     scopes: List[Literal["data", "ask", "mcp"]]
     created_at: str
     last_used_at: Optional[str]
 
 
 class Quota(TypedDict):
+    """The monthly query allowance of the plans before credits. It no longer limits anything: see ``Balance``."""
+
     unlimited: bool
     remaining: Optional[int]
     resets_at: Optional[str]
@@ -45,17 +48,40 @@ class RateLimits(TypedDict):
     organization_per_minute: int
 
 
+class Balance(TypedDict):
+    """The organization's credit wallet, in ``get_usage()`` and ``get_me()``."""
+
+    # The balance: the plan's credits plus the purchased ones.
+    credits: float
+    # The plan's credits, which expire on the billing day.
+    plan_credits: float
+    # The purchased credits, which only expire after 24 months without activity.
+    purchased_credits: float
+    # Set aside by actions in progress (a query, a review).
+    reserved: float
+    # What can be spent right now: the balance minus what is reserved.
+    available: float
+    # "standard": everything is deducted. "unlimited": nothing is (Team). "unlimited_queries": queries are not
+    # deducted, everything else is (the former Pro plan).
+    mode: Literal["standard", "unlimited", "unlimited_queries"]
+    plan_credits_expire_at: Optional[str]
+
+
 class MeResponse(TypedDict):
     key: KeyInfo
     user: Dict[str, Optional[str]]
     organization: Optional[Dict[str, Any]]
     rate_limits: RateLimits
     quota: Quota
+    # None while the organization's account does not work with credits.
+    balance: Optional[Balance]
 
 
 class UsageRow(TypedDict):
     calls: int
-    credits: int
+    # Credits charged at the tariff of each call: 5 a query, 1 a parcel with constraints or zoning, 0.1 any other data
+    # call, 0 the free ones. It may have decimals.
+    credits: float
     errors: int
 
 
@@ -71,6 +97,8 @@ class UsageResponse(_UsagePeriod):
     by_day: List[Dict[str, Any]]
     this_key: UsageRow
     quota: Quota
+    # None while the organization's account does not work with credits.
+    balance: Optional[Balance]
 
 
 class KeyList(TypedDict):
@@ -168,8 +196,9 @@ class AddressInterpretation(TypedDict):
 # was understood and does not exist).
 AddressSearchReason = Literal[
     "municipality_mismatch", "number_mismatch", "foral_territory", "no_reference", "no_candidates", "ambiguous",
+    "not_understood",
     # No municipality was written: the candidates are those of the largest cities with that street.
-    "not_understood", "municipality_missing",
+    "municipality_missing",
 ]
 
 
@@ -336,4 +365,5 @@ class RegulationSection(TypedDict):
 # ── Intelligence ────────────────────────────────────────────────────────
 
 AskV2Response = Dict[str, Any]
+# The retired POST /api/v1/verify (410).
 VerifyResponse = Dict[str, Any]
