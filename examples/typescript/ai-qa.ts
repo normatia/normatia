@@ -4,6 +4,9 @@
  * The scope of a query comes from its project (municipality, selected
  * regulations, uploaded documents), so there is no geo_id or code filter to
  * pass. Omit project_id to use the user's active project.
+ *
+ * Listing the projects is free; each question costs 5 credits of the
+ * organization's balance, nothing if it fails.
  */
 
 const DEFAULT_API_URL = "https://api.normatia.com";

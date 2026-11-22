@@ -14,7 +14,7 @@ Base de la API: [api.normatia.com](https://api.normatia.com)
 
 ## ¿Qué es Normatia?
 
-Normatia es una plataforma de cumplimiento normativo de la edificación para el sector AECO en España (arquitectura, ingeniería, construcción y operaciones). Este repositorio contiene el kit de herramientas de código abierto: un servidor MCP para asistentes de IA, un SDK en TypeScript, ejemplos de uso de la API y skills reutilizables para IA.
+Normatia es una plataforma de cumplimiento normativo de la edificación para el sector AECO en España (arquitectura, ingeniería, construcción y operaciones). Este repositorio contiene el kit de herramientas de código abierto: un servidor MCP para asistentes de IA, los SDK de TypeScript y de Python, ejemplos de uso de la API y skills reutilizables para IA.
 
 ## Servidor MCP
 
@@ -28,17 +28,21 @@ https://mcp.normatia.com/mcp/
 
 ### Herramientas disponibles
 
-Primero los datos: gratis, deterministas y con el mismo JSON que la API REST (`structuredContent` con su
+Primero los datos: baratos, deterministas y con el mismo JSON que la API REST (`structuredContent` con su
 `outputSchema`).
 
-| Herramienta | Descripción | Coste |
+| Herramienta | Descripción | Créditos |
 | --- | --- | --- |
-| `find_parcel`, `get_parcel` | Una parcela por un punto o por su referencia catastral, con afecciones, planeamiento, edificación, inmuebles y geometría | Gratis |
-| `get_place` | Un municipio con sus datos técnicos, cada uno con la norma de donde sale | Gratis |
-| `search_regulations`, `get_regulation_contents`, `read_regulation_section` | El catálogo normativo, el índice de una norma y el texto de cada sección | Gratis |
-| `ask` | Una pregunta interpretada por el motor, sobre un proyecto, un municipio (`place`) o una parcela (`parcel`) | 1 consulta |
+| `find_parcel` | La parcela de un punto o de una dirección | 0,1 |
+| `get_parcel` | Una parcela por su referencia catastral, con afecciones, planeamiento, edificación, inmuebles y geometría | 1 con afecciones o planeamiento (por defecto), 0,1 sin ellos |
+| `get_place` | Un municipio con sus datos técnicos, cada uno con la norma de donde sale | 0,1 |
+| `search_regulations`, `get_regulation_contents`, `read_regulation_section` | El catálogo normativo, el índice de una norma y el texto de cada sección | 0,1 |
+| `ask` | Una pregunta interpretada por el motor, sobre un proyecto, un municipio (`place`) o una parcela (`parcel`) | 5, nada si falla |
 | `get_answer` | Recoge una consulta de `ask` que pasó de 45 segundos | Gratis |
-| `list_projects`, `get_project_info`, `get_usage` | Los proyectos del usuario y el consumo de la organización | Gratis |
+| `list_projects`, `get_project_info`, `get_usage` | Los proyectos del usuario, y el consumo y el saldo de la organización | Gratis |
+
+Las herramientas se pagan con los créditos de la organización del usuario, y solo cuando salen bien. En el plan Team
+no se descuenta nada. Sin créditos suficientes, la herramienta responde con un error que lo dice, y no se cobra nada.
 
 `ask` ejecuta **el mismo bucle agéntico que el chat de normatia.com** y cita cada fuente con marcadores `[N]`
 validados. Espera como mucho 45 segundos; si el motor no ha terminado, devuelve un `id` que recoge `get_answer`, así
@@ -53,7 +57,7 @@ completa: [docs.normatia.com/mcp](https://docs.normatia.com/mcp/).
 | Transporte | Streamable HTTP (`http` en la mayoría de los clientes) |
 | Autenticación | OAuth, o una clave de API en `Authorization: Bearer sk-normatia-...` |
 
-La API y el MCP se activan por organización, cada uno por su lado: escribe a hola@normatia.com para activarlos. Con OAuth, el cliente te lleva a iniciar sesión en Normatia y obtiene el acceso por ti. Para los clientes sin OAuth, crea una clave en normatia.com, en [Mi cuenta](https://normatia.com/es/area-usuario/cuenta) (apartado «Claves API»).
+Todas las organizaciones tienen la API y el MCP activados. Con OAuth, el cliente te lleva a iniciar sesión en Normatia y obtiene el acceso por ti. Para los clientes sin OAuth, crea una clave en normatia.com, en [Mi cuenta](https://normatia.com/es/area-usuario/cuenta) (apartado «Claves API»).
 
 #### Claude (claude.ai y Claude Desktop)
 
@@ -206,6 +210,22 @@ console.log(results[0].geo_id); // "ES-41091"
 
 Consulta [packages/sdk-typescript/README.md](packages/sdk-typescript/README.md) para la documentación completa.
 
+## SDK de Python
+
+```bash
+pip install normatia
+```
+
+```python
+from normatia import Normatia
+
+client = Normatia()  # lee NORMATIA_API_KEY
+place = client.get_place("ES-41091")  # Sevilla
+print(place["technical_data"]["climate_zone"]["value"])  # "B4"
+```
+
+Consulta [packages/sdk-python/README.md](packages/sdk-python/README.md) para la documentación completa.
+
 ## Ejemplos
 
 | Directorio | Descripción |
@@ -226,6 +246,12 @@ El directorio [skills](skills) contiene prompts de sistema reutilizables para ag
 
 | Endpoint | Método | Descripción |
 | --- | --- | --- |
+| `/v1/parcels`, `/v1/parcels/{ref}` | GET | Parcelas por un punto, una dirección o su referencia catastral, con afecciones y planeamiento |
+| `/v1/addresses` | GET | Autocompletar direcciones |
+| `/v1/places`, `/v1/places/{place}` | GET | Municipios y sus datos técnicos |
+| `/v1/regulations`, `/v1/regulations/{slug}/contents`, `/v1/regulations/{slug}/sections/{section}` | GET | El catálogo normativo y el texto de cada sección |
+| `/v1/layers`, `/v1/coverage`, `/v1/sandbox` | GET | Las capas de afección, lo que hay cargado en un municipio y el entorno de pruebas |
+| `/v1/me`, `/v1/usage`, `/v1/keys` | GET | La clave, el consumo, el saldo de créditos y las claves |
 | `/api/v1/location/search` | GET | Buscar territorios por nombre |
 | `/api/v1/location/{geo_id}` | GET | Detalle de un territorio: ancestros, datos técnicos y normativas aplicables |
 | `/api/v1/codes/search` | GET | Buscar en el catálogo normativo |
@@ -234,12 +260,11 @@ El directorio [skills](skills) contiene prompts de sistema reutilizables para ag
 | `/api/v1/codes/{slug}/{version}` | GET | Una versión con su índice de secciones (títulos, sin texto) |
 | `/api/v1/projects` | GET | Listar los proyectos que el usuario puede consultar |
 | `/api/v1/project/info` | GET | Contexto completo de un proyecto |
-| `/api/v2/ask` | POST | Consulta normativa agéntica sobre un proyecto (1 crédito) |
-| `/api/v1/verify` | POST | Verificar un parámetro en el municipio del proyecto activo (1 crédito) |
+| `/api/v2/ask` | POST | Consulta normativa agéntica sobre un proyecto |
 
-Todas las llamadas llevan `Authorization: Bearer sk-normatia-...`. Los errores llegan como `{"detail": {"error": "<código>", "message": "..."}}`; los códigos, los límites y la cuota están en [docs.normatia.com/api-reference/authentication](https://docs.normatia.com/api-reference/authentication/).
+Todas las llamadas llevan `Authorization: Bearer sk-normatia-...` y se pagan con los créditos de la organización, solo cuando salen bien. `/api/v2/ask` cuesta 5; una parcela con afecciones o planeamiento, 1; cualquier otro dato, 0,1. La cuenta, las capas, la cobertura, el entorno de pruebas y los proyectos son gratis. Sin créditos suficientes, la API responde `402 insufficient_credits`. Los errores de `/v1` son problemas RFC 9457 con su `code`; las rutas anteriores responden `{"detail": {"error": "<código>", "message": "..."}}`. Los códigos y los límites están en [docs.normatia.com/api-reference/authentication](https://docs.normatia.com/api-reference/authentication/).
 
-`POST /api/v1/ask` (el antiguo endpoint RAG de un solo disparo) está congelado y oculto del esquema público. Sigue funcionando para las integraciones existentes, pero las nuevas deben usar `/api/v2/ask`.
+`POST /api/v1/ask` y `POST /api/v1/verify` se retiraron el 21 de noviembre de 2026 y responden `410 endpoint_retired`: usa `/api/v2/ask`.
 
 ## Documentación
 

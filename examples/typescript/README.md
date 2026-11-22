@@ -7,12 +7,13 @@ These scripts demonstrate how to call the Normatia API from TypeScript using nat
 - `location-search.ts`: Location search filters and location detail
 - `code-lookup.ts`: Code search, code detail, versions in force and one version with its section index
 - `ai-qa.ts`: Agentic Q&A (`POST /api/v2/ask`) over one of your projects
-- `compliance-check.ts`: Compliance verification for a building element, on the location of your active project
+- `compliance-check.ts`: A compliance check asked in plain words (`POST /api/v2/ask`) on your active project
 
 ## Prerequisites
 
 - Node.js 18+
-- A valid API key (created on normatia.com, in your account, with API access turned on for your organization)
+- A valid API key (created on normatia.com, in your account). `ai-qa.ts` and `compliance-check.ts` cost 5 credits
+  each, nothing if they fail; the other examples 0.1 credits a call
 
 ## Environment variables
 
@@ -41,5 +42,5 @@ npm install
 npm run location
 npm run codes
 npm run ai
-npm run verify
+npm run compliance
 ```

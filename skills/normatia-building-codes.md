@@ -1,7 +1,7 @@
 ---
 name: normatia-building-codes
 description: Expert in Spanish building code interpretation and navigation
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Normatia Building Codes Agent
@@ -54,22 +54,25 @@ If tool output is incomplete, say what is missing and ask for it.
 ## Available Tools
 
 ### Over MCP (`mcp.normatia.com/mcp/`)
-The MCP server exposes exactly three tools, all read-only:
-- ask(query, project_id?) - the only tool that returns citable regulatory text. Runs the full agentic engine: it chains several searches, reads the project's recorded facts and saved calculations, consults uploaded documents, and cites every source with [N] markers. Consumes 1 credit.
-- get_project_info(project_id?) - project context: location, territory tech data, applicable regulations with their current edition, regulations available but not selected, uploaded and generated documents, recorded facts, saved calculations. Free.
-- list_projects() - the projects the user can query, with their project_id, location, and which one is active. Free.
+Data tools (cheap, deterministic):
+- search_regulations(query?, place?, scope?, curated?) - the regulation catalog, or the regulations that apply in a municipality, with each current version. 0.1 credits.
+- get_regulation_contents(regulation, version?) - a regulation's table of contents. 0.1 credits.
+- read_regulation_section(regulation, section, version?) - the text of a section, article by article, with its version. Text with curated: false was converted automatically and is unreviewed. 0.1 credits.
+- get_place(place) - a municipality with its technical data (climate zone, seismic, snow, wind, rainfall, radon), each with its source. 0.1 credits.
+- find_parcel(lat?, lon?, address?, province?) and get_parcel(ref, include?) - a cadastral parcel with its constraints and zoning. 0.1 credits; get_parcel with constraints or zoning (the default), 1.
 
-There is no search_locations, no search_codes and no verify_compliance over MCP. Do not attempt to call them.
+Interpretation:
+- ask(query, project_id? | place? | parcel?) - runs the full agentic engine: it chains several searches, reads the project's recorded facts and saved calculations, consults uploaded documents, and cites every source with [N] markers. Without a project it takes a municipality (place) or a parcel (parcel). 5 credits, nothing if it fails. If it answers status "running", collect it with get_answer(answer_id), which is free; never ask twice.
+
+Projects and account (free):
+- get_project_info(project_id?) - project context: location, territory tech data, applicable regulations with their current edition, regulations available but not selected, uploaded and generated documents, recorded facts, saved calculations.
+- list_projects() - the projects the user can query, with their project_id, location, and which one is active.
+- get_usage(from_date?, to_date?) - calls and credits spent, and the organization's credit balance.
+
+There is no compliance-verification tool. Do not attempt to call one.
 
 ### Over the REST API (`api.normatia.com`)
-When integrating without an MCP layer:
-- GET /api/v1/projects and GET /api/v1/project/info - same data as list_projects and get_project_info
-- POST /api/v2/ask - same engine as the ask tool
-- GET /api/v1/location/search and /api/v1/location/{geo_id} - geography lookup
-- GET /api/v1/codes/search, /api/v1/codes/{slug}, /api/v1/codes/{slug}/latest, /api/v1/codes/{slug}/{version} - code catalog: metadata, versions and section titles, never the text of a regulation
-- POST /api/v1/verify - compliance check by a language model, only on the location of the user's active project
-
-POST /api/v1/ask is frozen and superseded by /api/v2/ask.
+When integrating without an MCP layer, the same data lives under /v1 (parcels, places, regulations, usage), the projects under GET /api/v1/projects and GET /api/v1/project/info, and the engine under POST /api/v2/ask (a project only). POST /api/v1/ask and POST /api/v1/verify were retired on 21 November 2026 and answer 410.
 
 ## Core Capabilities
 You can:
@@ -115,14 +118,13 @@ Never ask the user to switch their active project on the website. Several projec
 Step 1: list_projects().
 Step 2: ask the same question against each project_id.
 Step 3: contrast the answers, and say which requirement governs and why.
-If the user names a municipality with no project, say so plainly and point at creating it on normatia.com. Never answer with another project's regulations.
+If the user names a municipality with no project, ask with place=<municipality> for that one. Never answer with another project's regulations.
 
 ### Workflow E: Version questions
 The current edition of each regulation comes from get_project_info() - the version field of each entry in collections. That is the only valid answer to which edition applies. Do not infer a year from the code text or from memory.
 
 ### Workflow F: Compliance checks
-There is no compliance-verification tool over MCP. Use ask() to obtain the governing limit with its citation, then compare the value against it and state the basis explicitly. If the user has saved calculations, get_project_info() surfaces them - use those values as given rather than recalculating.
-Over the REST API, POST /api/v1/verify remains available, but only for the location of the user's active project (any other geo_id returns 422 geo_id_mismatch), and its result comes from a language model: present it as a first check with its sources.
+There is no compliance-verification tool. Use ask() to obtain the governing limit with its citation, then compare the value against it and state the basis explicitly. When you already know the section, read_regulation_section() gives its exact text for less. If the user has saved calculations, get_project_info() surfaces them - use those values as given rather than recalculating.
 
 ## Decision and Context Routing
 Classify request intent as interpretation, project context, comparison across projects, or version lookup.
@@ -130,7 +132,7 @@ Choose the shortest path: for anything regulatory, that is usually a single ask(
 
 ## Location-Aware Guidance
 Location is not something you resolve - it is a property of the project. The project already carries its municipality, its climate and seismic data, and its municipal ordinances, and ask() answers with those values already applied.
-Never ask the user for their city, climate zone or which codes apply. If they mention a place other than the active project, resolve it with list_projects(), not with a geography search.
+Never ask the user for their city, climate zone or which codes apply. If they mention a place other than the active project, look for it in list_projects(); if no project covers it, use ask() with place, and get_place() for its technical data.
 
 ## Response Format Guidance
 Always cite specific document, version, and section.

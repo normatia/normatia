@@ -14,7 +14,7 @@ API base: [api.normatia.com](https://api.normatia.com)
 
 ## What is Normatia?
 
-Normatia is a building code compliance platform for Spain's AECO sector (architecture, engineering, construction, and operations). This repository contains the open-source developer toolkit: an MCP server for AI assistants, a TypeScript SDK, API usage examples, and reusable AI skills.
+Normatia is a building code compliance platform for Spain's AECO sector (architecture, engineering, construction, and operations). This repository contains the open-source developer toolkit: an MCP server for AI assistants, TypeScript and Python SDKs, API usage examples, and reusable AI skills.
 
 ## MCP Server
 
@@ -28,16 +28,20 @@ https://mcp.normatia.com/mcp/
 
 ### Available Tools
 
-Data first: free, deterministic, and the same JSON as the REST API (`structuredContent` with an `outputSchema`).
+Data first: cheap, deterministic, and the same JSON as the REST API (`structuredContent` with an `outputSchema`).
 
-| Tool | Description | Cost |
+| Tool | Description | Credits |
 | --- | --- | --- |
-| `find_parcel`, `get_parcel` | A parcel at a point or by its cadastral reference, with constraints, zoning, buildings, units, geometry | Free |
-| `get_place` | A municipality with its technical data, each with the regulation it comes from | Free |
-| `search_regulations`, `get_regulation_contents`, `read_regulation_section` | The regulation catalog, a regulation's contents and the text of each section | Free |
-| `ask` | A question interpreted by the engine, about a project, a municipality (`place`) or a parcel (`parcel`) | 1 query |
+| `find_parcel` | The parcel at a point or at an address | 0.1 |
+| `get_parcel` | A parcel by its cadastral reference, with constraints, zoning, buildings, units, geometry | 1 with constraints or zoning (the default), 0.1 without |
+| `get_place` | A municipality with its technical data, each with the regulation it comes from | 0.1 |
+| `search_regulations`, `get_regulation_contents`, `read_regulation_section` | The regulation catalog, a regulation's contents and the text of each section | 0.1 |
+| `ask` | A question interpreted by the engine, about a project, a municipality (`place`) or a parcel (`parcel`) | 5, nothing if it fails |
 | `get_answer` | Collects an `ask` that took longer than 45 seconds | Free |
-| `list_projects`, `get_project_info`, `get_usage` | The user's projects and the organization's usage | Free |
+| `list_projects`, `get_project_info`, `get_usage` | The user's projects, and the organization's usage and credit balance | Free |
+
+Tools are paid with the credits of the user's organization, and only when they succeed; the Team plan deducts
+nothing. Without enough credits the tool answers with an error that says so, and nothing is charged.
 
 `ask` runs the **same agent loop as the chat on normatia.com** and cites every source with validated `[N]` markers.
 It waits at most 45 seconds; if the engine has not finished it returns an `id` that `get_answer` collects, so no
@@ -52,7 +56,7 @@ client times out. All tools are read-only except `ask`, which saves its conversa
 | Transport | Streamable HTTP (`http` in most client configs) |
 | Auth | OAuth, or an API key as `Authorization: Bearer sk-normatia-...` |
 
-API and MCP access are turned on per organization, each on its own: write to hola@normatia.com to get them. With OAuth, the client sends you to sign in to Normatia and gets access for you. For clients without OAuth, create a key on normatia.com in [your account](https://normatia.com/es/area-usuario/cuenta) (section "Claves API").
+Every organization has the API and the MCP server turned on. With OAuth, the client sends you to sign in to Normatia and gets access for you. For clients without OAuth, create a key on normatia.com in [your account](https://normatia.com/es/area-usuario/cuenta) (section "Claves API").
 
 #### Claude (claude.ai and Claude Desktop)
 
@@ -201,6 +205,22 @@ console.log(location.tech_data?.climate_zone); // "B4"
 
 See [packages/sdk-typescript/README.md](packages/sdk-typescript/README.md) for full documentation.
 
+## Python SDK
+
+```bash
+pip install normatia
+```
+
+```python
+from normatia import Normatia
+
+client = Normatia()  # reads NORMATIA_API_KEY
+place = client.get_place("ES-41091")  # Sevilla
+print(place["technical_data"]["climate_zone"]["value"])  # "B4"
+```
+
+See [packages/sdk-python/README.md](packages/sdk-python/README.md) for full documentation.
+
 ## Examples
 
 | Directory | Description |
@@ -221,6 +241,12 @@ The [skills](skills) directory contains reusable system prompts for AI agents wo
 
 | Endpoint | Method | Description |
 | --- | --- | --- |
+| `/v1/parcels`, `/v1/parcels/{ref}` | GET | Parcels by point, address or cadastral reference, with constraints and zoning |
+| `/v1/addresses` | GET | Address autocomplete |
+| `/v1/places`, `/v1/places/{place}` | GET | Municipalities and their technical data |
+| `/v1/regulations`, `/v1/regulations/{slug}/contents`, `/v1/regulations/{slug}/sections/{section}` | GET | The regulation catalog and the text of each section |
+| `/v1/layers`, `/v1/coverage`, `/v1/sandbox` | GET | Constraint layers, what is loaded in a municipality, the sandbox |
+| `/v1/me`, `/v1/usage`, `/v1/keys` | GET | The key, the usage, the credit balance and the keys |
 | `/api/v1/location/search` | GET | Search locations by name |
 | `/api/v1/location/{geo_id}` | GET | Location detail: ancestors, tech data and applicable codes |
 | `/api/v1/codes/search` | GET | Search the regulation catalog |
@@ -229,12 +255,11 @@ The [skills](skills) directory contains reusable system prompts for AI agents wo
 | `/api/v1/codes/{slug}/{version}` | GET | One version with its section index (titles, no text) |
 | `/api/v1/projects` | GET | List the projects the user can query |
 | `/api/v1/project/info` | GET | Full context of a project |
-| `/api/v2/ask` | POST | Agentic regulatory Q&A over a project (1 credit) |
-| `/api/v1/verify` | POST | Check a parameter on the active project's location (1 credit) |
+| `/api/v2/ask` | POST | Agentic regulatory Q&A over a project |
 
-Every call needs `Authorization: Bearer sk-normatia-...`. Errors come as `{"detail": {"error": "<code>", "message": "..."}}`; the codes, limits and quota are described in [docs.normatia.com/api-reference/authentication](https://docs.normatia.com/api-reference/authentication/).
+Every call needs `Authorization: Bearer sk-normatia-...` and is paid with the organization's credits, only when it succeeds: `/api/v2/ask` costs 5, a parcel with constraints or zoning 1, any other data call 0.1, and the account, layers, coverage, sandbox and projects are free. Without enough credits the API answers `402 insufficient_credits`. Errors on `/v1` are RFC 9457 problems with a `code`; the older routes send `{"detail": {"error": "<code>", "message": "..."}}`. The codes and limits are described in [docs.normatia.com/api-reference/authentication](https://docs.normatia.com/api-reference/authentication/).
 
-`POST /api/v1/ask` (the old single-shot RAG endpoint) is frozen and hidden from the public schema. It still works for existing integrations, but new ones should use `/api/v2/ask`.
+`POST /api/v1/ask` and `POST /api/v1/verify` were retired on 21 November 2026 and answer `410 endpoint_retired`: use `/api/v2/ask`.
 
 ## Documentation
 

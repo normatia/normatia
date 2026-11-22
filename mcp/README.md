@@ -10,7 +10,7 @@ The Normatia MCP server is a remote server using **Streamable HTTP** transport: 
 | Transport  | Streamable HTTP (`http` in most client configs)               |
 | Auth       | OAuth, or an API key as `Authorization: Bearer sk-normatia-...` |
 
-API and MCP access are turned on per organization, each on its own: write to hola@normatia.com to get them. With OAuth, the client sends you to sign in to Normatia and gets access for you. To use a key instead, create one on normatia.com in [your account](https://normatia.com/es/area-usuario/cuenta) (section "Claves API"). Keys look like `sk-normatia-` followed by 64 hex characters.
+Every organization has the API and the MCP server turned on. With OAuth, the client sends you to sign in to Normatia and gets access for you. To use a key instead, create one on normatia.com in [your account](https://normatia.com/es/area-usuario/cuenta) (section "Claves API"). Keys look like `sk-normatia-` followed by 64 hex characters.
 
 ---
 
@@ -100,27 +100,30 @@ Copy [`opencode.json`](./opencode.json) and replace `sk-normatia-YOUR_API_KEY`. 
 
 ## Available Tools
 
-Data first, interpretation second. The data tools are free and deterministic and return the same JSON as the REST
+Data first, interpretation second. The data tools are cheap and deterministic and return the same JSON as the REST
 API (in `structuredContent`, with an `outputSchema`) plus a text summary for the model. `ask` interprets the
-regulations with Normatia's agentic engine and spends one query.
+regulations with Normatia's agentic engine.
 
-| Tool | Description | Cost |
+| Tool | Description | Credits |
 | --- | --- | --- |
-| `find_parcel(lat, lon)` | The cadastral parcel at a point, or the nearest ones | Free |
-| `get_parcel(ref, include?)` | A parcel: municipality, class, area, addresses and, with `include`, constraints, zoning, buildings, units, geometry | Free |
-| `get_place(place)` | A municipality (name, INE code or `ES-…`) with its technical data, each with the regulation it comes from | Free |
-| `search_regulations(query?, place?, scope?, curated?)` | The regulation catalog, by title, scope or municipality | Free |
-| `get_regulation_contents(regulation, version?)` | A regulation's table of contents | Free |
-| `read_regulation_section(regulation, section, version?)` | The text of a section, article by article | Free |
-| `ask(query, project_id? \| place? \| parcel?)` | A question interpreted by the engine, with cited sources | 1 query |
+| `find_parcel(lat?, lon?, address?, province?)` | The cadastral parcel at a point, or the nearest ones; or the parcels of an address | 0.1 |
+| `get_parcel(ref, include?)` | A parcel: municipality, class, area, addresses and, with `include`, constraints, zoning, buildings, units, geometry | 1 with constraints or zoning (the default), 0.1 without |
+| `get_place(place)` | A municipality (name, INE code or `ES-…`) with its technical data, each with the regulation it comes from | 0.1 |
+| `search_regulations(query?, place?, scope?, curated?)` | The regulation catalog, by title, scope or municipality | 0.1 |
+| `get_regulation_contents(regulation, version?)` | A regulation's table of contents | 0.1 |
+| `read_regulation_section(regulation, section, version?)` | The text of a section, article by article | 0.1 |
+| `ask(query, project_id? \| place? \| parcel?)` | A question interpreted by the engine, with cited sources | 5, nothing if it fails |
 | `get_answer(answer_id)` | Collects an `ask` that was still running | Free |
 | `list_projects()` | The user's projects, with their `project_id` | Free |
 | `get_project_info(project_id?)` | A project's context: location, applicable regulations, files, memory, calculations | Free |
-| `get_usage(from_date?, to_date?)` | Calls and queries spent, and what is left this month | Free |
+| `get_usage(from_date?, to_date?)` | Calls and credits spent, and the organization's credit balance | Free |
+
+Tools are paid with the credits of the user's organization, and only when they succeed; the Team plan deducts
+nothing. Without enough credits the tool answers with an `insufficient_credits` error and nothing is charged.
 
 All are read-only except `ask`, which saves its conversation. Errors come back as `isError` results with the API
 error code, the message and what to do next. The server accepts **60 requests per minute per key**; `ask` also
-counts against the plan's per-minute limit and monthly quota.
+counts against the plan's per-minute limit.
 
 Two rules the server gives the assistant: a constraint layer with `no_data` is unknown, never "not affected"; and
 regulation text with `curated: false` was converted automatically and is unreviewed.
@@ -136,7 +139,7 @@ It takes at most one scope:
 
 It waits at most **45 seconds**, with a progress notification every 5. If the engine has not finished it returns
 `status: "running"` and an `id`, the query keeps running on the server, and `get_answer` collects it without
-spending another query.
+spending more credits.
 
 ### Working across projects
 

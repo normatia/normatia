@@ -4,6 +4,9 @@
 Uses the agentic endpoint `POST /api/v2/ask`. The scope of the query comes from
 the project, so there is no `geo_id` or code filter to pass: list the projects
 first and pick one, or omit `project_id` to use the user's active project.
+
+Listing the projects is free; each question costs 5 credits of the organization's
+balance, nothing if it fails.
 """
 
 from __future__ import annotations

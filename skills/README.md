@@ -61,37 +61,56 @@ You can use them with:
 This allows the same skill behavior whether your assistant runs through MCP
 or calls the API without an MCP layer.
 
-### Everything is scoped to a project
+### A project, a municipality or a parcel
 
-Normatia's regulatory scope is defined per project. A project on normatia.com carries
-its municipality, its applicable regulations with the edition in force, its uploaded
-documents, the facts recorded about the building and any saved calculations.
+Normatia answers within a scope. A project on normatia.com carries its municipality,
+its applicable regulations with the edition in force, its uploaded documents, the facts
+recorded about the building and any saved calculations. Without a project, `ask` takes a
+municipality (`place`) or a cadastral parcel (`parcel`) and uses the regulations
+Normatia has for that municipality, from national to municipal.
 
 The skills are written around that: they never ask the user for a city, a climate zone
-or which codes apply, because the project already answers those. And they never answer
-about a municipality where the user has no project.
+or which codes apply, because the project, the municipality or the parcel already
+answers those. And they never answer about one municipality with another one's
+regulations.
 
-### The three MCP tools
+### The MCP tools
 
-| Tool | Purpose | Cost |
+| Tool | Purpose | Credits |
 | --- | --- | --- |
-| `ask(query, project_id?)` | Regulatory Q&A over a project. The only tool that returns citable regulatory text. | 1 credit |
-| `get_project_info(project_id?)` | Project context: location, tech data, regulations with their version, documents, recorded facts, calculations. | Free |
+| `find_parcel(lat?, lon?, address?, province?)` | The cadastral parcel at a point, or the parcels of an address. | 0.1 |
+| `get_parcel(ref, include?)` | A parcel with its constraints, zoning and buildings. | 1 with constraints or zoning (the default), 0.1 without |
+| `get_place(place)` | A municipality with its technical data (climate zone, seismic, snow, wind, rainfall, radon), each with its source. | 0.1 |
+| `search_regulations(query?, place?, scope?, curated?)` | The regulation catalog, or the regulations that apply in a municipality. | 0.1 |
+| `get_regulation_contents(regulation, version?)` | A regulation's table of contents. | 0.1 |
+| `read_regulation_section(regulation, section, version?)` | The text of a section, article by article. | 0.1 |
+| `ask(query, project_id? \| place? \| parcel?)` | Regulatory Q&A interpreted by the agentic engine, with cited sources. | 5, nothing if it fails |
+| `get_answer(answer_id)` | Collects an `ask` that took longer than 45 seconds. | Free |
 | `list_projects()` | The projects the user can query, with their `project_id` and location. | Free |
+| `get_project_info(project_id?)` | Project context: location, tech data, regulations with their version, documents, recorded facts, calculations. | Free |
+| `get_usage(from_date?, to_date?)` | Calls and credits spent, and the organization's credit balance. | Free |
 
-All three are read-only. There is no `search_locations`, `search_codes` or
-`verify_compliance` on the MCP server: the geography and code catalog endpoints, and
-`POST /api/v1/verify`, live on the REST API only.
+Tools are paid with the credits of the user's organization, and only when they
+succeed. All are read-only except `ask`, which saves its conversation. There is no
+compliance-verification tool: to check a value, ask the question with `ask` and compare.
 
 ### REST equivalents
 
 | Tool | Endpoint |
 | --- | --- |
-| `ask` | `POST /api/v2/ask` |
+| `find_parcel` | `GET /v1/parcels` |
+| `get_parcel` | `GET /v1/parcels/{ref}` |
+| `get_place` | `GET /v1/places/{place}` |
+| `search_regulations` | `GET /v1/regulations` |
+| `get_regulation_contents` | `GET /v1/regulations/{slug}/contents` |
+| `read_regulation_section` | `GET /v1/regulations/{slug}/sections/{section}` |
+| `ask` | `POST /api/v2/ask` (a project only; `place` and `parcel` are MCP only) |
 | `get_project_info` | `GET /api/v1/project/info` |
 | `list_projects` | `GET /api/v1/projects` |
+| `get_usage` | `GET /v1/usage` |
 
-`POST /api/v1/ask` is frozen and superseded by `/api/v2/ask`.
+`POST /api/v1/ask` and `POST /api/v1/verify` were retired on 21 November 2026 and
+answer 410 `endpoint_retired`.
 
 ### MCP Server
 

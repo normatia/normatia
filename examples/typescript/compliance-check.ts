@@ -1,22 +1,26 @@
 /**
- * Demonstrates Normatia Compliance Verification endpoint usage with raw fetch.
+ * Demonstrates a compliance check with Normatia's agentic Q&A endpoint
+ * (POST /api/v2/ask) and raw fetch.
  *
- * POST /api/v1/verify only works on the location of the user's ACTIVE project on
- * normatia.com: geo_id must be that project's geo_id (see GET /api/v1/projects,
- * the project with is_active: true). Any other geo_id returns 422
- * geo_id_mismatch. Each call consumes 1 credit.
+ * The question is asked in plain words on the user's active project, which
+ * already carries its municipality, its climate zone and its regulations. The
+ * answer gives the limit, the section that sets it and the verdict, with its
+ * sources. Add project_id to the body to target another project.
+ *
+ * Each call costs 5 credits of the organization's balance, nothing if it fails.
+ * Without enough credits the API answers 402 insufficient_credits.
  */
 
 const DEFAULT_API_URL = "https://api.normatia.com";
 
-const REQUEST_BODY = {
-  element: "Ventana exterior con carpintería de aluminio con rotura de puente térmico",
-  parameter: "Transmitancia térmica (valor U)",
-  value: 2.3,
-  unit: "W/m2K",
-  geo_id: "ES-41091",
-  codes: [{ slug: "cte-db-he" }],
-};
+const QUERY =
+  "Una ventana exterior de aluminio con rotura de puente térmico tiene una transmitancia " +
+  "U = 2,3 W/m²K. ¿Cumple el CTE DB-HE en mi proyecto? Dime el valor límite, el apartado " +
+  "que lo fija y si cumple.";
+
+// A turn is capped server-side at 120 s. Give the client margin on top: aborting
+// early does not stop the turn, it just throws the answer away.
+const REQUEST_TIMEOUT_MS = 150_000;
 
 function getClientConfig(): { apiKey: string; baseUrl: string } {
   const apiKey = process.env.NORMATIA_API_KEY;
@@ -50,19 +54,6 @@ function formatOutput(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-function formatValue(value: unknown): string {
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  if (value === null || value === undefined) {
-    return "n/a";
-  }
-  return JSON.stringify(value);
-}
-
 async function postJson(
   config: { apiKey: string; baseUrl: string },
   path: string,
@@ -80,6 +71,7 @@ async function postJson(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (error) {
     throw new Error(`Network error while calling ${url}: ${String(error)}`);
@@ -95,6 +87,13 @@ async function postJson(
     }
   }
 
+  if (response.status === 402) {
+    const detail = asObject(asObject(payload).detail);
+    throw new Error(
+      `Not enough credits for this query: ${String(detail.available)} available, ${String(detail.required)} needed.`,
+    );
+  }
+
   if (!response.ok) {
     throw new Error(`Request failed (${response.status} ${response.statusText}) for ${url}\n${formatOutput(payload)}`);
   }
@@ -102,6 +101,7 @@ async function postJson(
   return payload;
 }
 
+/** Print the cited sources. `index` is the N of each [N] marker in the answer. */
 function printSources(sources: unknown): void {
   console.log("\nSources");
   console.log("=======");
@@ -113,50 +113,30 @@ function printSources(sources: unknown): void {
 
   for (const item of sources) {
     const source = asObject(item);
-    const title = asString(source.document_title) ?? asString(source.code_slug) ?? "untitled";
-    const section = asString(source.section_title);
-    const url = asString(source.url) ?? "no url";
-    console.log(`[${source.index ?? "?"}] ${title}${section ? ` | ${section}` : ""} | ${url}`);
+    const title = asString(source.document_title) ?? "untitled";
+    const detail = [asString(source.section_title), asString(source.block_title)].filter(Boolean).join(" | ");
+    const line = `[${source.index ?? "?"}] ${title}${detail ? ` | ${detail}` : ""}`;
+    const url = asString(source.url);
+    console.log(url ? `${line} | ${url}` : line);
   }
 }
 
 async function main(): Promise<void> {
   const config = getClientConfig();
 
-  console.log("\n== Compliance check: Window U-value in Seville (ES-41091) against CTE DB-HE ==");
+  console.log("\n== Compliance check: window U-value against CTE DB-HE, on the active project ==");
+  console.log(QUERY);
 
-  const payload = asObject(await postJson(config, "/api/v1/verify", REQUEST_BODY));
+  const payload = asObject(await postJson(config, "/api/v2/ask", { query: QUERY }));
 
-  const isCompliant = payload.is_compliant;
-  const resultStatus = asString(payload.result_status) ?? "unknown";
-
-  const providedValue = payload.provided_value ?? REQUEST_BODY.value;
-  const providedUnit = asString(payload.unit) ?? REQUEST_BODY.unit;
-  const limitValue = payload.limit_value ?? "n/a";
-
-  console.log("\nCompliance status");
-  console.log("=================");
-  console.log(`is_compliant: ${formatValue(isCompliant)}`);
-  console.log(`result_status: ${resultStatus}`);
-
-  console.log("\nProvided vs limit");
-  console.log("=================");
-  console.log(`provided: ${formatValue(providedValue)} ${providedUnit}`);
-  console.log(`limit: ${formatValue(limitValue)} ${providedUnit}`);
-
-  const notes = [
-    ...(Array.isArray(payload.conditions) ? payload.conditions : []),
-    ...(Array.isArray(payload.warnings) ? payload.warnings : []),
-  ];
-  if (notes.length > 0) {
-    console.log("\nConditions and warnings");
-    console.log("=======================");
-    for (const note of notes) {
-      console.log(`- ${formatValue(note)}`);
-    }
-  }
+  console.log("\nAnswer");
+  console.log("======");
+  console.log(asString(payload.answer) ?? "No answer returned.");
 
   printSources(payload.sources);
+
+  const project = asObject(payload.project);
+  console.log(`\nProject: ${asString(project.location) ?? "?"} | ${asString(project.project_id) ?? "?"}`);
 }
 
 main().catch((error) => {

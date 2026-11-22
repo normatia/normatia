@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Demonstrates Normatia Compliance Verification API usage:
-# - Verify thermal transmittance (U-value) for a window in Seville
-# - Scope the check to CTE DB-HE
+# Demonstrates a compliance check with Normatia's agentic Q&A endpoint:
+# - Ask, in plain words, whether a window U-value complies with the CTE DB-HE
+#   on the active project
+# - The answer gives the limit, the section that sets it and the verdict,
+#   with its sources
 #
-# /api/v1/verify only works on the location of your ACTIVE project on
-# normatia.com: geo_id must be that project's geo_id (see GET /api/v1/projects,
-# the project with "is_active": true). Any other geo_id returns
-# 422 geo_id_mismatch. Each call consumes 1 credit.
+# The scope comes from the project (municipality, climate zone, selected
+# regulations), so there is no geo_id or code filter to pass. Add "project_id"
+# to the body to target a project other than the active one.
+#
+# Each call costs 5 credits of the organization's balance, nothing if it fails.
+# Without enough credits the API answers 402 insufficient_credits.
 
 set -euo pipefail
 
@@ -29,37 +33,31 @@ print_json_or_raw() {
   fi
 }
 
-VERIFY_BODY="$(cat <<'JSON'
+ASK_BODY="$(cat <<'JSON'
 {
-  "element": "Ventana exterior con carpintería de aluminio con rotura de puente térmico",
-  "parameter": "Transmitancia térmica (valor U)",
-  "value": 2.3,
-  "unit": "W/m2K",
-  "geo_id": "ES-41091",
-  "codes": [
-    { "slug": "cte-db-he" }
-  ]
+  "query": "Una ventana exterior de aluminio con rotura de puente térmico tiene una transmitancia U = 2,3 W/m²K. ¿Cumple el CTE DB-HE en mi proyecto? Dime el valor límite, el apartado que lo fija y si cumple."
 }
 JSON
 )"
 
 echo
-echo "== Compliance check: Window U-value in Seville (ES-41091) against CTE DB-HE =="
+echo "== Compliance check: window U-value against CTE DB-HE, on the active project =="
+# A turn is capped server-side at 120 s, so give curl margin: cutting the
+# request early does not stop the turn, it just throws the answer away.
+#
 # Expected response shape (abbreviated):
 # {
-#   "is_compliant": true,
-#   "result_status": "compliant",
-#   "provided_value": 2.3,
-#   "limit_value": ...,
-#   "unit": "W/m2K",
-#   "conditions": [],
-#   "sources": [{"index": 1, "code_slug": "cte-db-he", "version": "2022",
-#                "document_title": "...", "section_title": "...", "url": "..."}],
-#   "warnings": [],
-#   "geo_context": {"geo_id": "ES-41091", "name": "Sevilla", "climate_zone": "B4"}
+#   "answer": "... el límite es ... [1] ... cumple ...",
+#   "sources": [
+#     {"index": 1, "citation_type": "article", "document_title": "CTE DB-HE ...",
+#      "section_title": "...", "block_title": "...", "url": "..."}
+#   ],
+#   "project": {"project_id": "...", "geo_id": "ES-41091", "location": "Sevilla"},
+#   "iterations": 3,
+#   "searches": 2
 # }
-curl -s -X POST "$BASE_URL/api/v1/verify" \
+curl -s --max-time 150 -X POST "$BASE_URL/api/v2/ask" \
   -H "Authorization: Bearer $NORMATIA_API_KEY" \
   -H "Content-Type: application/json" \
-  -d "$VERIFY_BODY" \
+  -d "$ASK_BODY" \
   | print_json_or_raw
